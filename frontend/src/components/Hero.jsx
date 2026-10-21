@@ -40,10 +40,7 @@ export default function Hero({ onBookingClick }) {
   };
 
   return (
-    <section
-      id="hero"
-      className="pt-20 pb-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto font-sans"
-    >
+    <section id="hero" className="pt-25 pb-8 w-full font-sans">
       {/* BANNER UTAMA  */}
       <div className="relative w-full overflow-hidden bg-slate-950 shadow-2xl min-h-[460px] sm:min-h-[510px] flex flex-col justify-between p-5 sm:p-8 lg:p-10">
         {/* BACKGROUND SLIDER DENGAN ANIMASI FADE */}
@@ -77,8 +74,6 @@ export default function Hero({ onBookingClick }) {
               LIVE RESERVATION SYSTEM
             </span>
           </div>
-
-         
         </div>
 
         {/* ISI TEKS & TOMBOL DI ATAS GAMBAR */}

@@ -5,7 +5,7 @@ export default function Footer() {
 
   return (
     <footer className="bg-slate-900 dark:bg-slate-950 text-slate-300 border-t border-slate-800/80 transition-colors duration-300 pt-16 pb-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="w-full px-6 sm:px-10 lg:px-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-10 pb-12 border-b border-slate-800">
           {/* BRAND & DESKRIPSI (PENGATURAN LOGO FOOTER DI SINI) */}
           <div className="lg:col-span-4 space-y-4">
@@ -64,6 +64,7 @@ export default function Footer() {
               </a>
             </div>
           </div>
+          
 
           {/* KONTAK & JAM OPERASIONAL */}
           <div className="lg:col-span-3 space-y-4">

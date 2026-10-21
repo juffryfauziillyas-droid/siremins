@@ -76,7 +76,7 @@ export default function Features({ onSelectMiniSoccer }) {
       id="fasilitas"
       className="bg-slate-100/70 dark:bg-slate-950 py-24 px-4 sm:px-6 lg:px-8 transition-colors duration-300"
     >
-      <div className="max-w-7xl mx-auto space-y-20">
+      <div className="w-full px-6 sm:px-10 lg:px-12 space-y-20">
         {/* HEADER SECTION */}
         <div className="text-center max-w-3xl mx-auto space-y-4">
           <div className="inline-flex items-center space-x-2 text-blue-600 dark:text-emerald-400 font-extrabold text-xs tracking-widest uppercase">
