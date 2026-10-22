@@ -4,8 +4,6 @@ import {
   User,
   Phone,
   Layers,
-  CheckCircle2,
-  AlertCircle,
   X,
   Calendar,
   Sparkles,
@@ -21,8 +19,7 @@ export default function BookingSection({
   setFormData,
   onUpdateBookingTime,
   duration,
-  message,
-  handleBooking,
+  handleBooking, // <-- 'message' dihapus
 }) {
   return (
     <motion.div
@@ -63,6 +60,7 @@ export default function BookingSection({
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* BAGIAN KIRI (KALENDER & SLOT WAKTU) */}
           <div className="lg:col-span-7 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-50 dark:bg-slate-900/60 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 gap-3">
               <span className="text-xs font-black flex items-center text-slate-700 dark:text-slate-300 uppercase tracking-wider">
@@ -88,7 +86,7 @@ export default function BookingSection({
               </div>
               <div className="flex items-center space-x-1.5">
                 <span className="w-2.5 h-2.5 bg-rose-500 rounded-full"></span>
-                <span>Terpesan (Booked)</span>
+                <span>Terpesan</span>
               </div>
             </div>
 
@@ -96,22 +94,17 @@ export default function BookingSection({
               {timeSlots.map((time, index) => {
                 const status = getSlotStatus(time);
                 const isSelected = formData.start_time === time;
-
                 let btnClass =
                   "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800/50 hover:bg-emerald-500 hover:text-white dark:hover:bg-emerald-500 dark:hover:text-slate-950";
-
                 if (status === "PENDING_DP")
                   btnClass =
                     "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900/40 pointer-events-none opacity-60";
                 if (status === "BOOKED")
                   btnClass =
                     "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/20 dark:text-rose-400 dark:border-rose-900/40 pointer-events-none opacity-60";
-
-                if (isSelected) {
+                if (isSelected)
                   btnClass =
                     "bg-blue-600 text-white border-blue-600 dark:bg-emerald-500 dark:text-slate-950 dark:border-emerald-500 font-black shadow-md";
-                }
-
                 return (
                   <button
                     key={index}
@@ -126,23 +119,9 @@ export default function BookingSection({
             </div>
           </div>
 
+          {/* BAGIAN KANAN (FORM) */}
           <div className="lg:col-span-5 bg-slate-50 dark:bg-slate-900/60 p-5 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800/80">
-            {message.text && (
-              <div
-                className={`p-3.5 rounded-xl mb-4 text-xs font-semibold flex items-start space-x-2.5 ${
-                  message.type === "success"
-                    ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
-                    : "bg-rose-50 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-800"
-                }`}
-              >
-                {message.type === "success" ? (
-                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                ) : (
-                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400" />
-                )}
-                <span>{message.text}</span>
-              </div>
-            )}
+            {/* BLOK NOTIFIKASI ERROR/SUKSES LAMA TELAH DIHAPUS DI SINI */}
 
             <form onSubmit={handleBooking} className="space-y-4">
               <div>
@@ -169,7 +148,7 @@ export default function BookingSection({
 
               <div>
                 <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
-                  Nomor WhatsApp Active
+                  Nomor WhatsApp Aktif
                 </label>
                 <div className="relative">
                   <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3" />

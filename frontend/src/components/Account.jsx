@@ -1,17 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import {
-  X,
-  User,
-  Phone,
-  Lock,
-  Eye,
-  EyeOff,
-  CheckCircle2,
-  AlertCircle,
-  Sparkles,
-  KeyRound,
-} from "lucide-react";
+import toast from "react-hot-toast"; // <-- IMPORT TOAST
+import { X, User, Phone, Lock, Eye, EyeOff, KeyRound } from "lucide-react";
 import axios from "axios";
 
 const API_URL = "http://localhost:5000/api";
@@ -25,34 +15,20 @@ export default function Account({ currentUser, onClose, onUpdateSuccess }) {
   const [showPassword, setShowPassword] = useState(false);
 
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState({ type: "", text: "" });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setMessage({ type: "", text: "" });
 
     if (showChangePassword) {
-      if (!currentPassword) {
-        setMessage({ type: "error", text: "Masukkan kata sandi saat ini." });
-        return;
-      }
-      if (newPassword !== confirmNewPassword) {
-        setMessage({
-          type: "error",
-          text: "Konfirmasi kata sandi baru tidak cocok.",
-        });
-        return;
-      }
-      if (newPassword.length < 6) {
-        setMessage({
-          type: "error",
-          text: "Kata sandi baru minimal 6 karakter.",
-        });
-        return;
-      }
+      if (!currentPassword) return toast.error("Masukkan kata sandi saat ini.");
+      if (newPassword !== confirmNewPassword)
+        return toast.error("Konfirmasi sandi baru tidak cocok.");
+      if (newPassword.length < 6)
+        return toast.error("Sandi baru minimal 6 karakter.");
     }
 
     setLoading(true);
+    const toastId = toast.loading("Menyimpan profil...");
 
     try {
       const payload = {
@@ -63,23 +39,19 @@ export default function Account({ currentUser, onClose, onUpdateSuccess }) {
       };
 
       const res = await axios.put(`${API_URL}/auth/update-profile`, payload);
-
-      setMessage({
-        type: "success",
-        text: res.data.message || "Profil berhasil diperbarui!",
+      toast.success(res.data.message || "Profil berhasil diperbarui!", {
+        id: toastId,
       });
 
-      if (onUpdateSuccess) {
-        onUpdateSuccess(res.data.user);
-      }
+      if (onUpdateSuccess) onUpdateSuccess(res.data.user);
 
       setTimeout(() => {
         onClose();
-      }, 1200);
+      }, 800);
     } catch (err) {
       const errorMsg =
         err.response?.data?.message || "Gagal memperbarui profil.";
-      setMessage({ type: "error", text: errorMsg });
+      toast.error(errorMsg, { id: toastId });
     } finally {
       setLoading(false);
     }
@@ -93,7 +65,6 @@ export default function Account({ currentUser, onClose, onUpdateSuccess }) {
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md overflow-y-auto"
     >
       <div className="absolute inset-0" onClick={onClose} />
-
       <motion.div
         initial={{ scale: 0.95, y: 20, opacity: 0 }}
         animate={{ scale: 1, y: 0, opacity: 1 }}
@@ -109,7 +80,6 @@ export default function Account({ currentUser, onClose, onUpdateSuccess }) {
           <X className="w-5 h-5" />
         </button>
 
-        {/* HEADER */}
         <div className="text-center mb-6">
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-emerald-400 mb-3 border border-blue-500/20">
             <User className="w-6 h-6" />
@@ -122,29 +92,10 @@ export default function Account({ currentUser, onClose, onUpdateSuccess }) {
           </p>
         </div>
 
-        {/* PESAN NOTIFIKASI */}
-        {message.text && (
-          <div
-            className={`p-3.5 rounded-xl mb-4 text-xs font-semibold flex items-center space-x-2.5 ${
-              message.type === "success"
-                ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
-                : "bg-rose-50 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-800"
-            }`}
-          >
-            {message.type === "success" ? (
-              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-            ) : (
-              <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400" />
-            )}
-            <span>{message.text}</span>
-          </div>
-        )}
-
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* NOMOR WA / HP (READ ONLY) */}
           <div>
             <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
-              Nomor WhatsApp / No. HP (Tidak dapat diubah)
+              No. HP (Read-Only)
             </label>
             <div className="relative">
               <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
@@ -156,8 +107,6 @@ export default function Account({ currentUser, onClose, onUpdateSuccess }) {
               />
             </div>
           </div>
-
-          {/* NAMA PENGGUNJUNG */}
           <div>
             <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
               Nama Lengkap
@@ -167,15 +116,12 @@ export default function Account({ currentUser, onClose, onUpdateSuccess }) {
               <input
                 type="text"
                 required
-                placeholder="Masukkan nama Anda"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-blue-500 text-xs font-medium"
               />
             </div>
           </div>
-
-          {/* TOGGLE UBAT KATA SANDI */}
           <div className="pt-2">
             <button
               type="button"
@@ -190,19 +136,16 @@ export default function Account({ currentUser, onClose, onUpdateSuccess }) {
               </span>
             </button>
           </div>
-
-          {/* FORM GANTI KATA SANDI */}
           {showChangePassword && (
             <div className="space-y-3 pt-2 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200/80 dark:border-slate-800/80">
               <div>
                 <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
-                  Kata Sandi Saat Ini
+                  Sandi Lama
                 </label>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
                   <input
                     type={showPassword ? "text" : "password"}
-                    placeholder="Masukkan kata sandi lama"
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
                     className="w-full pl-10 pr-10 py-2.5 bg-white dark:bg-slate-950 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-blue-500 text-xs font-medium"
@@ -210,7 +153,7 @@ export default function Account({ currentUser, onClose, onUpdateSuccess }) {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                    className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 cursor-pointer"
                   >
                     {showPassword ? (
                       <EyeOff className="w-4 h-4" />
@@ -220,32 +163,28 @@ export default function Account({ currentUser, onClose, onUpdateSuccess }) {
                   </button>
                 </div>
               </div>
-
               <div>
                 <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
-                  Kata Sandi Baru
+                  Sandi Baru
                 </label>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
                   <input
                     type={showPassword ? "text" : "password"}
-                    placeholder="Minimal 6 karakter"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     className="w-full pl-10 pr-10 py-2.5 bg-white dark:bg-slate-950 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-blue-500 text-xs font-medium"
                   />
                 </div>
               </div>
-
               <div>
                 <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
-                  Konfirmasi Kata Sandi Baru
+                  Konfirmasi Sandi Baru
                 </label>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
                   <input
                     type={showPassword ? "text" : "password"}
-                    placeholder="Ulangi kata sandi baru"
                     value={confirmNewPassword}
                     onChange={(e) => setConfirmNewPassword(e.target.value)}
                     className="w-full pl-10 pr-10 py-2.5 bg-white dark:bg-slate-950 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-blue-500 text-xs font-medium"
@@ -254,7 +193,6 @@ export default function Account({ currentUser, onClose, onUpdateSuccess }) {
               </div>
             </div>
           )}
-
           <button
             type="submit"
             disabled={loading}

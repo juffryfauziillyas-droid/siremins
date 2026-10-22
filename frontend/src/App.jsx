@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
+import toast, { Toaster } from "react-hot-toast";
+import AdminDashboard from "./components/AdminDashboard";
 import Navbar from "./components/Navbar";
 import Hero from "./components/Hero";
 import Features from "./components/Features";
@@ -26,14 +28,13 @@ export default function App() {
     end_time: "",
   });
   const [duration, setDuration] = useState(1);
-  const [message, setMessage] = useState({ type: "", text: "" });
+
   const [darkMode, setDarkMode] = useState(() => {
     const savedTheme = localStorage.getItem("siremins-theme");
     if (savedTheme) return savedTheme === "dark";
     return document.documentElement.classList.contains("dark");
   });
 
-  // State User & Modals
   const [showBooking, setShowBooking] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [showAccount, setShowAccount] = useState(false);
@@ -89,7 +90,6 @@ export default function App() {
     }
   }, [darkMode]);
 
-  // PERBAIKAN 1: Penguncian scroll saat modal aktif
   useEffect(() => {
     if (
       showBooking ||
@@ -108,7 +108,6 @@ export default function App() {
     } else {
       document.body.style.overflow = "unset";
     }
-
     return () => {
       document.body.style.overflow = "unset";
     };
@@ -168,6 +167,7 @@ export default function App() {
     localStorage.removeItem("adminData");
     setCurrentUser(null);
     setShowLogout(false);
+    toast.success("Berhasil keluar dari akun.");
   };
 
   const getSlotStatus = (time) => {
@@ -182,7 +182,9 @@ export default function App() {
 
   const handleBooking = async (e) => {
     e.preventDefault();
-    setMessage({ type: "", text: "" });
+
+    // MENAMPILKAN TOAST LOADING SAAT PROSES BOOKING
+    const toastId = toast.loading("Memproses reservasi...");
 
     try {
       const response = await axios.post(`${API_URL}/bookings`, {
@@ -190,12 +192,9 @@ export default function App() {
         booking_date: selectedDate,
       });
 
-      setMessage({ type: "success", text: response.data.message });
-      setFormData((prev) => ({
-        ...prev,
-        start_time: "",
-        end_time: "",
-      }));
+      toast.success(response.data.message, { id: toastId });
+
+      setFormData((prev) => ({ ...prev, start_time: "", end_time: "" }));
       setDuration(1);
 
       const updatedData = await axios.get(
@@ -206,7 +205,7 @@ export default function App() {
       const errorMsg =
         error.response?.data?.message ||
         "Terjadi kesalahan pada sistem backend.";
-      setMessage({ type: "error", text: errorMsg });
+      toast.error(errorMsg, { id: toastId });
     }
   };
 
@@ -219,102 +218,84 @@ export default function App() {
     },
   };
 
-  return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 font-sans selection:bg-blue-500 selection:text-white dark:selection:bg-emerald-400 dark:selection:text-slate-950 transition-colors duration-300">
-      {/* PERBAIKAN 2: Penambahan Prop onOpenMyBookings */}
-      <Navbar
-        darkMode={darkMode}
-        setDarkMode={setDarkMode}
-        onLoginClick={() => setShowLogin(true)}
-        currentUser={currentUser}
-        onOpenAccount={() => setShowAccount(true)}
-        onOpenMyBookings={() => setShowMyBookings(true)}
-        onOpenLogout={() => setShowLogout(true)}
-      />
+    return (
+        <div className="min-h-screen bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 font-sans selection:bg-blue-500 selection:text-white dark:selection:bg-emerald-400 dark:selection:text-slate-950 transition-colors duration-300">
 
-      <motion.div initial="hidden" animate="visible" variants={fadeInUp}>
-        <Hero onBookingClick={handleOpenBooking} />
-      </motion.div>
+            <Toaster
+                position="top-center"
+                reverseOrder={false}
+                toastOptions={{
+                    duration: 3000,
+                    className: "bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 shadow-2xl rounded-2xl text-xs font-black tracking-wide",
+                    success: { iconTheme: { primary: '#10b981', secondary: '#fff' } },
+                    error: { iconTheme: { primary: '#f43f5e', secondary: '#fff' } },
+                }}
+            />
 
-      <motion.div
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, amount: 0.2 }}
-        variants={fadeInUp}
-      >
-        <Features onSelectMiniSoccer={handleOpenBooking} />
-      </motion.div>
+            <Navbar
+                darkMode={darkMode}
+                setDarkMode={setDarkMode}
+                onLoginClick={() => setShowLogin(true)}
+                currentUser={currentUser}
+                onOpenAccount={() => setShowAccount(true)}
+                onOpenMyBookings={() => setShowMyBookings(true)}
+                onOpenLogout={() => setShowLogout(true)}
+            />
 
-      <motion.div
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, amount: 0.1 }}
-        variants={fadeInUp}
-      >
-        <ContactSection />
-      </motion.div>
+            {/* RENDER KONDISIONAL: JIKA ADMIN, TAMPILKAN DASHBOARD. JIKA BUKAN, TAMPILKAN HALAMAN UTAMA */}
+            {currentUser?.role === "admin" ? (
+                <AdminDashboard currentUser={currentUser} />
+            ) : (
+                <>
+                    <motion.div initial="hidden" animate="visible" variants={fadeInUp}>
+                        <Hero onBookingClick={handleOpenBooking} />
+                    </motion.div>
 
-      {/* MODAL RESERVASI */}
-      <AnimatePresence>
-        {showBooking && (
-          <BookingSection
-            onClose={() => setShowBooking(false)}
-            selectedDate={selectedDate}
-            setSelectedDate={setSelectedDate}
-            timeSlots={timeSlots}
-            getSlotStatus={getSlotStatus}
-            formData={formData}
-            setFormData={setFormData}
-            onUpdateBookingTime={updateBookingTime}
-            duration={duration}
-            message={message}
-            handleBooking={handleBooking}
-          />
-        )}
-      </AnimatePresence>
+                    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.2 }} variants={fadeInUp}>
+                        <Features onSelectMiniSoccer={handleOpenBooking} />
+                    </motion.div>
 
-      {/* MODAL LOGIN */}
-      <AnimatePresence>
-        {showLogin && (
-          <Login
-            onClose={() => setShowLogin(false)}
-            onLoginSuccess={handleLoginSuccess}
-          />
-        )}
-      </AnimatePresence>
+                    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.1 }} variants={fadeInUp}>
+                        <ContactSection />
+                    </motion.div>
+                </>
+            )}
 
-      {/* MODAL INFO AKUN / UBAH PROFIL */}
-      <AnimatePresence>
-        {showAccount && (
-          <Account
-            currentUser={currentUser}
-            onClose={() => setShowAccount(false)}
-            onUpdateSuccess={handleUpdateProfileSuccess}
-          />
-        )}
-      </AnimatePresence>
+            {/* MODAL COMPONENTS (Tetap diletakkan di luar agar bisa diakses admin maupun user) */}
+            <AnimatePresence>
+                {showBooking && (
+                    <BookingSection
+                        onClose={() => setShowBooking(false)}
+                        selectedDate={selectedDate}
+                        setSelectedDate={setSelectedDate}
+                        timeSlots={timeSlots}
+                        getSlotStatus={getSlotStatus}
+                        formData={formData}
+                        setFormData={setFormData}
+                        onUpdateBookingTime={updateBookingTime}
+                        duration={duration}
+                        handleBooking={handleBooking}
+                    />
+                )}
+            </AnimatePresence>
 
-      {/* PERBAIKAN 3: Penambahan Modal MyBookingsModal */}
-      <AnimatePresence>
-        {showMyBookings && (
-          <MyBookingsModal
-            currentUser={currentUser}
-            onClose={() => setShowMyBookings(false)}
-          />
-        )}
-      </AnimatePresence>
+            <AnimatePresence>
+                {showLogin && <Login onClose={() => setShowLogin(false)} onLoginSuccess={handleLoginSuccess} />}
+            </AnimatePresence>
 
-      {/* MODAL KONFIRMASI LOGOUT */}
-      <AnimatePresence>
-        {showLogout && (
-          <Logout
-            onClose={() => setShowLogout(false)}
-            onConfirm={handleConfirmLogout}
-          />
-        )}
-      </AnimatePresence>
+            <AnimatePresence>
+                {showAccount && <Account currentUser={currentUser} onClose={() => setShowAccount(false)} onUpdateSuccess={handleUpdateProfileSuccess} />}
+            </AnimatePresence>
 
-      <Footer />
-    </div>
-  );
+            <AnimatePresence>
+                {showMyBookings && <MyBookingsModal currentUser={currentUser} onClose={() => setShowMyBookings(false)} />}
+            </AnimatePresence>
+
+            <AnimatePresence>
+                {showLogout && <Logout onClose={() => setShowLogout(false)} onConfirm={handleConfirmLogout} />}
+            </AnimatePresence>
+
+            <Footer />
+        </div>
+    );
 }
