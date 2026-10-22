@@ -9,12 +9,13 @@ import {
     XCircle,
     Trash2,
     Search,
-    RefreshCw
+    RefreshCw,
+    LogOut
 } from "lucide-react";
 
 const API_URL = "http://localhost:5000/api";
 
-export default function AdminDashboard({ currentUser }) {
+export default function AdminDashboard({ currentUser, onLogoutClick }) {
     const [activeTab, setActiveTab] = useState("bookings"); // 'bookings' atau 'users'
     const [bookings, setBookings] = useState([]);
     const [users, setUsers] = useState([]);
@@ -103,16 +104,26 @@ export default function AdminDashboard({ currentUser }) {
                     </p>
                 </div>
 
-                {/* PENCARIAN */}
-                <div className="relative w-full md:w-72">
-                    <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
-                    <input
-                        type="text"
-                        placeholder="Cari nama atau no. HP..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-blue-500 text-xs font-medium shadow-sm"
-                    />
+                {/* PENCARIAN & TOMBOL LOGOUT */}
+                <div className="flex items-center gap-3 w-full md:w-auto">
+                    <div className="relative w-full md:w-72">
+                        <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                        <input
+                            type="text"
+                            placeholder="Cari nama atau no. HP..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-blue-500 text-xs font-medium shadow-sm"
+                        />
+                    </div>
+
+                    <button
+                        onClick={onLogoutClick}
+                        className="flex items-center justify-center gap-2 px-4 py-2.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl shadow-md transition-colors text-xs font-bold uppercase tracking-wider"
+                    >
+                        <LogOut className="w-4 h-4" />
+                        <span className="hidden sm:inline">Keluar</span>
+                    </button>
                 </div>
             </div>
 

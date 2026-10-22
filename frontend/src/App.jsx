@@ -232,19 +232,26 @@ export default function App() {
                 }}
             />
 
-            <Navbar
-                darkMode={darkMode}
-                setDarkMode={setDarkMode}
-                onLoginClick={() => setShowLogin(true)}
-                currentUser={currentUser}
-                onOpenAccount={() => setShowAccount(true)}
-                onOpenMyBookings={() => setShowMyBookings(true)}
-                onOpenLogout={() => setShowLogout(true)}
-            />
+            {/* TAMPILKAN NAVBAR HANYA JIKA BUKAN ADMIN */}
+            {currentUser?.role !== "admin" && (
+                <Navbar
+                    darkMode={darkMode}
+                    setDarkMode={setDarkMode}
+                    onLoginClick={() => setShowLogin(true)}
+                    currentUser={currentUser}
+                    onOpenAccount={() => setShowAccount(true)}
+                    onOpenMyBookings={() => setShowMyBookings(true)}
+                    onOpenLogout={() => setShowLogout(true)}
+                />
+            )}
 
-            {/* RENDER KONDISIONAL: JIKA ADMIN, TAMPILKAN DASHBOARD. JIKA BUKAN, TAMPILKAN HALAMAN UTAMA */}
+            {/* RENDER KONDISIONAL UTAMA */}
             {currentUser?.role === "admin" ? (
-                <AdminDashboard currentUser={currentUser} />
+                // Tambahkan prop onLogoutClick agar Admin tetap bisa logout dari dalam dashboard
+                <AdminDashboard
+                    currentUser={currentUser}
+                    onLogoutClick={() => setShowLogout(true)}
+                />
             ) : (
                 <>
                     <motion.div initial="hidden" animate="visible" variants={fadeInUp}>
@@ -261,41 +268,27 @@ export default function App() {
                 </>
             )}
 
-            {/* MODAL COMPONENTS (Tetap diletakkan di luar agar bisa diakses admin maupun user) */}
+            {/* ... (BIARKAN SEMUA MODAL AnimatePresence TETAP DI SINI) ... */}
             <AnimatePresence>
-                {showBooking && (
-                    <BookingSection
-                        onClose={() => setShowBooking(false)}
-                        selectedDate={selectedDate}
-                        setSelectedDate={setSelectedDate}
-                        timeSlots={timeSlots}
-                        getSlotStatus={getSlotStatus}
-                        formData={formData}
-                        setFormData={setFormData}
-                        onUpdateBookingTime={updateBookingTime}
-                        duration={duration}
-                        handleBooking={handleBooking}
-                    />
-                )}
+                {showBooking && <BookingSection /* props */ />}
             </AnimatePresence>
-
             <AnimatePresence>
-                {showLogin && <Login onClose={() => setShowLogin(false)} onLoginSuccess={handleLoginSuccess} />}
+                {showLogin && <Login /* props */ />}
             </AnimatePresence>
-
             <AnimatePresence>
-                {showAccount && <Account currentUser={currentUser} onClose={() => setShowAccount(false)} onUpdateSuccess={handleUpdateProfileSuccess} />}
+                {showAccount && <Account /* props */ />}
             </AnimatePresence>
-
             <AnimatePresence>
-                {showMyBookings && <MyBookingsModal currentUser={currentUser} onClose={() => setShowMyBookings(false)} />}
+                {showMyBookings && <MyBookingsModal /* props */ />}
             </AnimatePresence>
-
             <AnimatePresence>
                 {showLogout && <Logout onClose={() => setShowLogout(false)} onConfirm={handleConfirmLogout} />}
             </AnimatePresence>
 
-            <Footer />
+            {/* TAMPILKAN FOOTER HANYA JIKA BUKAN ADMIN */}
+            {currentUser?.role !== "admin" && (
+                <Footer />
+            )}
         </div>
     );
 }
