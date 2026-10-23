@@ -18,8 +18,15 @@ export default function BookingSection({
 
     const [dpAmount, setDpAmount] = useState(minimalDP);
 
-    // 1. KUNCI KALENDER (Cegah pilih tanggal kemarin)
-    const todayDateString = new Date().toISOString().split("T")[0];
+    // 1. KUNCI KALENDER (Hanya dari tanggal besok / H+1)
+    const tomorrowDateString = (() => {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const year = tomorrow.getFullYear();
+        const month = String(tomorrow.getMonth() + 1).padStart(2, '0');
+        const day = String(tomorrow.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    })();
 
     // 2. FUNGSI CEK BATAS 24 JAM
     const checkIsTooSoon = (dateStr, timeStr) => {
@@ -29,7 +36,7 @@ export default function BookingSection({
         return slotDateTime < twentyFourHoursFromNow;
     };
 
-    // 3. RESET FORM SAAT TANGGAL DIGANTI (Mencegah warna hijau nyangkut)
+    // 3. RESET FORM SAAT TANGGAL DIGANTI
     useEffect(() => {
         setDpAmount(minimalDP);
         setFormData((prev) => ({ ...prev, start_time: "", end_time: "", dp_amount: minimalDP }));
@@ -43,12 +50,11 @@ export default function BookingSection({
         setFormData((prev) => ({ ...prev, dp_amount: value }));
     };
 
-    // 4. FUNGSI CEK TABRAKAN JADWAL (Mencegah overlap durasi)
+    // 4. FUNGSI CEK TABRAKAN JADWAL
     const handleTimeSelection = (time, reqDuration) => {
         const startHour = parseInt(time.split(":")[0], 10);
         let isOverlap = false;
 
-        // Looping untuk mengecek apakah jam-jam berikutnya sudah dipesan
         for (let i = 0; i < reqDuration; i++) {
             const checkTime = `${(startHour + i).toString().padStart(2, "0")}:00`;
             const s = getSlotStatus(checkTime);
@@ -141,10 +147,11 @@ export default function BookingSection({
 
                             <input
                                 type="date"
-                                min={todayDateString}
+                                min={tomorrowDateString}
                                 value={selectedDate}
                                 onChange={(e) => setSelectedDate(e.target.value)}
-                                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-bold transition-all"
+                                onKeyDown={(e) => e.preventDefault()} // MENCEGAH KETIK MANUAL
+                                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-bold transition-all cursor-pointer"
                                 style={{ colorScheme: "dark" }}
                             />
                         </div>

@@ -17,9 +17,18 @@ import Footer from "./components/Footer";
 const API_URL = "http://localhost:5000/api";
 
 export default function App() {
-  const [selectedDate, setSelectedDate] = useState(
-    new Date().toISOString().split("T")[0],
-  );
+    // === TEMPATKAN KODE DI SINI ===
+    const getTomorrowLocalDateString = () => {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const year = tomorrow.getFullYear();
+        const month = String(tomorrow.getMonth() + 1).padStart(2, '0');
+        const day = String(tomorrow.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    const [selectedDate, setSelectedDate] = useState(getTomorrowLocalDateString());
+    // ==============================
   const [bookedSlots, setBookedSlots] = useState([]);
   const [formData, setFormData] = useState({
     customer_name: "",
