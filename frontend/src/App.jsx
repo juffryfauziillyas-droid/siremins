@@ -170,15 +170,22 @@ export default function App() {
     toast.success("Berhasil keluar dari akun.");
   };
 
-  const getSlotStatus = (time) => {
-    const match = bookedSlots.find((slot) => {
-      const bStart = parseInt(slot.start_time.split(":")[0], 10);
-      const bEnd = parseInt(slot.end_time.split(":")[0], 10);
-      const currentHour = parseInt(time.split(":")[0], 10);
-      return currentHour >= bStart && currentHour < bEnd;
-    });
-    return match ? match.status : "AVAILABLE";
-  };
+    const getSlotStatus = (time) => {
+        const match = bookedSlots.find((slot) => {
+            const bStart = parseInt(slot.start_time.split(":")[0], 10);
+            let bEnd = parseInt(slot.end_time.split(":")[0], 10);
+
+            // PERBAIKAN: Jika jam selesai adalah 00:00 (tengah malam), anggap sebagai jam 24
+            if (bEnd === 0) {
+                bEnd = 24;
+            }
+
+            const currentHour = parseInt(time.split(":")[0], 10);
+            return currentHour >= bStart && currentHour < bEnd;
+        });
+
+        return match ? match.status : "AVAILABLE";
+    };
 
   const handleBooking = async (e) => {
     e.preventDefault();
@@ -219,76 +226,105 @@ export default function App() {
   };
 
     return (
-        <div className="min-h-screen bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 font-sans selection:bg-blue-500 selection:text-white dark:selection:bg-emerald-400 dark:selection:text-slate-950 transition-colors duration-300">
+      <div className="min-h-screen bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 font-sans selection:bg-blue-500 selection:text-white dark:selection:bg-emerald-400 dark:selection:text-slate-950 transition-colors duration-300">
+        <Toaster
+          position="top-center"
+          reverseOrder={false}
+          toastOptions={{
+            duration: 3000,
+            className:
+              "bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 shadow-2xl rounded-2xl text-xs font-black tracking-wide",
+            success: { iconTheme: { primary: "#10b981", secondary: "#fff" } },
+            error: { iconTheme: { primary: "#f43f5e", secondary: "#fff" } },
+          }}
+        />
 
-            <Toaster
-                position="top-center"
-                reverseOrder={false}
-                toastOptions={{
-                    duration: 3000,
-                    className: "bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 shadow-2xl rounded-2xl text-xs font-black tracking-wide",
-                    success: { iconTheme: { primary: '#10b981', secondary: '#fff' } },
-                    error: { iconTheme: { primary: '#f43f5e', secondary: '#fff' } },
-                }}
+        {/* TAMPILKAN NAVBAR HANYA JIKA BUKAN ADMIN */}
+        {currentUser?.role !== "admin" && (
+          <Navbar
+            darkMode={darkMode}
+            setDarkMode={setDarkMode}
+            onLoginClick={() => setShowLogin(true)}
+            currentUser={currentUser}
+            onOpenAccount={() => setShowAccount(true)}
+            onOpenMyBookings={() => setShowMyBookings(true)}
+            onOpenLogout={() => setShowLogout(true)}
+          />
+        )}
+
+        {/* RENDER KONDISIONAL UTAMA */}
+        {currentUser?.role === "admin" ? (
+          // Tambahkan prop onLogoutClick agar Admin tetap bisa logout dari dalam dashboard
+          <AdminDashboard
+            currentUser={currentUser}
+            onLogoutClick={() => setShowLogout(true)}
+          />
+        ) : (
+          <>
+            <motion.div initial="hidden" animate="visible" variants={fadeInUp}>
+              <Hero onBookingClick={handleOpenBooking} />
+            </motion.div>
+
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, amount: 0.2 }}
+              variants={fadeInUp}
+            >
+              <Features onSelectMiniSoccer={handleOpenBooking} />
+            </motion.div>
+
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, amount: 0.1 }}
+              variants={fadeInUp}
+            >
+              <ContactSection />
+            </motion.div>
+          </>
+        )}
+
+        {/* ... (BIARKAN SEMUA MODAL AnimatePresence TETAP DI SINI) ... */}
+        <AnimatePresence>
+          {showBooking && (
+            <BookingSection
+              onClose={() => setShowBooking(false)}
+              selectedDate={selectedDate}
+              setSelectedDate={setSelectedDate}
+              timeSlots={timeSlots}
+              getSlotStatus={getSlotStatus}
+              formData={formData}
+              setFormData={setFormData}
+              onUpdateBookingTime={updateBookingTime}
+              duration={duration}
+              handleBooking={handleBooking}
             />
+          )}
+        </AnimatePresence>
+        <AnimatePresence>{showLogin && <Login /* props */ />}</AnimatePresence>
+        <AnimatePresence>
+          {showAccount && <Account /* props */ />}
+        </AnimatePresence>
+          <AnimatePresence>
+              {showMyBookings && (
+                  <MyBookingsModal
+                      currentUser={currentUser}
+                      onClose={() => setShowMyBookings(false)}
+                  />
+              )}
+          </AnimatePresence>
+        <AnimatePresence>
+          {showLogout && (
+            <Logout
+              onClose={() => setShowLogout(false)}
+              onConfirm={handleConfirmLogout}
+            />
+          )}
+        </AnimatePresence>
 
-            {/* TAMPILKAN NAVBAR HANYA JIKA BUKAN ADMIN */}
-            {currentUser?.role !== "admin" && (
-                <Navbar
-                    darkMode={darkMode}
-                    setDarkMode={setDarkMode}
-                    onLoginClick={() => setShowLogin(true)}
-                    currentUser={currentUser}
-                    onOpenAccount={() => setShowAccount(true)}
-                    onOpenMyBookings={() => setShowMyBookings(true)}
-                    onOpenLogout={() => setShowLogout(true)}
-                />
-            )}
-
-            {/* RENDER KONDISIONAL UTAMA */}
-            {currentUser?.role === "admin" ? (
-                // Tambahkan prop onLogoutClick agar Admin tetap bisa logout dari dalam dashboard
-                <AdminDashboard
-                    currentUser={currentUser}
-                    onLogoutClick={() => setShowLogout(true)}
-                />
-            ) : (
-                <>
-                    <motion.div initial="hidden" animate="visible" variants={fadeInUp}>
-                        <Hero onBookingClick={handleOpenBooking} />
-                    </motion.div>
-
-                    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.2 }} variants={fadeInUp}>
-                        <Features onSelectMiniSoccer={handleOpenBooking} />
-                    </motion.div>
-
-                    <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.1 }} variants={fadeInUp}>
-                        <ContactSection />
-                    </motion.div>
-                </>
-            )}
-
-            {/* ... (BIARKAN SEMUA MODAL AnimatePresence TETAP DI SINI) ... */}
-            <AnimatePresence>
-                {showBooking && <BookingSection /* props */ />}
-            </AnimatePresence>
-            <AnimatePresence>
-                {showLogin && <Login /* props */ />}
-            </AnimatePresence>
-            <AnimatePresence>
-                {showAccount && <Account /* props */ />}
-            </AnimatePresence>
-            <AnimatePresence>
-                {showMyBookings && <MyBookingsModal /* props */ />}
-            </AnimatePresence>
-            <AnimatePresence>
-                {showLogout && <Logout onClose={() => setShowLogout(false)} onConfirm={handleConfirmLogout} />}
-            </AnimatePresence>
-
-            {/* TAMPILKAN FOOTER HANYA JIKA BUKAN ADMIN */}
-            {currentUser?.role !== "admin" && (
-                <Footer />
-            )}
-        </div>
+        {/* TAMPILKAN FOOTER HANYA JIKA BUKAN ADMIN */}
+        {currentUser?.role !== "admin" && <Footer />}
+      </div>
     );
 }

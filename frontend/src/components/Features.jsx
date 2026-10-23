@@ -84,7 +84,7 @@ export default function Features({ onSelectMiniSoccer }) {
             <span>Fasilitas Olahraga Terintegrasi</span>
           </div>
           <h2 className="text-3xl sm:text-5xl font-black text-slate-900 dark:text-white tracking-tight uppercase">
-            Arena Olahraga & Fasilitas Utama
+              Arena Olahraga  <h2> & </h2> Fasilitas Utama
           </h2>
           <p className="text-slate-600 dark:text-slate-400 font-medium text-sm sm:text-base">
             Kami menyediakan arena dengan standar terbaik untuk mendukung
