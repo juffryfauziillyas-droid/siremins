@@ -1,0 +1,18 @@
+{
+  "watch": [
+    "index.mjs",
+    "db.mjs",
+    "controllers",
+    "routes",
+    "services",
+    ".env"
+  ],
+  "ext": "mjs,js,json",
+  "ignore": [
+    "node_modules/**"
+  ],
+  "exec": "node index.mjs",
+  "delay": 200,
+  "legacyWatch": true
+}
+
