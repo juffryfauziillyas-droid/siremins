@@ -1,0 +1,131 @@
+CATATAN ANALISIS DAN RENCANA PERBAIKAN SIREMINS
+Dibuat: 24 Oktober 2026
+Catatan ini untuk ditindaklanjuti nanti. Belum ada perubahan kode dari analisis ini.
+
+PRIORITAS KRITIS - KEAMANAN
+
+1. Lindungi endpoint dengan autentikasi dan otorisasi server-side.
+   - Rute admin dan profil belum terlihat menggunakan middleware autentikasi/otorisasi.
+   - Jangan mengandalkan pembatasan tampilan frontend sebagai perlindungan API.
+   - Terapkan verifikasi token dan pembatasan role ADMIN pada rute admin.
+   - Terapkan pemeriksaan identitas/kepemilikan pada akses dan perubahan booking.
+   - Referensi: backend/index.mjs, backend/routes/adminRoutes.mjs,
+     backend/routes/authRoutes.mjs, backend/routes/bookingRoutes.mjs.
+
+2. Amankan proses reset password.
+   - Saat ini reset password hanya meminta nomor HP dan password baru.
+   - Tambahkan verifikasi kepemilikan akun, misalnya OTP, serta rate limiting.
+   - Referensi: backend/controllers/authController.mjs.
+
+3. Verifikasi pembayaran di server menggunakan notifikasi/webhook Midtrans.
+   - Jangan menetapkan status pembayaran hanya dari callback browser.
+   - Validasi signature, status transaksi, order ID, dan nominal di server
+     sebelum memperbarui status booking.
+   - Referensi: backend/controllers/paymentController.mjs,
+     frontend/src/components/BookingSection.jsx,
+     frontend/src/components/MyBookings.jsx.
+
+4. Batasi perubahan status booking.
+   - Validasi status yang diizinkan dan aturan transisi status.
+   - Pastikan booking tidak dapat ditandai BOOKED atau BOOKED_PAID tanpa
+     otorisasi atau verifikasi pembayaran yang sesuai.
+   - Terapkan pemeriksaan konflik dan mekanisme lock secara konsisten.
+   - Referensi: backend/controllers/bookingController.mjs,
+     backend/controllers/adminController.mjs,
+     backend/services/bookingSlotService.mjs.
+
+PRIORITAS TINGGI - BOOKING DAN PEMBAYARAN
+
+5. Jalankan dan catat migrasi nominal DP.
+   - Booking baru sekarang menyimpan dp_amount.
+   - Migrasi backend/migrations/2026-10-24-add-booking-dp-amount.sql harus
+     dijalankan pada database sebelum memakai versi backend yang bergantung
+     pada kolom tersebut.
+   - Buat mekanisme migrasi yang tercatat, diuji di staging, dan aman untuk
+     mengetahui migrasi mana yang sudah diterapkan.
+
+6. Perjelas error saat booking gagal dibuat.
+   - createBooking mengembalikan pesan umum untuk semua error.
+   - Catat error teknis dengan konteks yang cukup di server dan bedakan
+     kegagalan skema, koneksi, validasi, konflik, dan lock.
+   - Jangan mengirim detail internal database kepada pengguna.
+   - Referensi: backend/controllers/bookingController.mjs.
+
+7. Jadikan backend sumber kebenaran perhitungan harga dan DP.
+   - Harga paket dan rumus DP tersebar di beberapa komponen frontend dan
+     backend sehingga dapat berbeda.
+   - Satukan perhitungan/validasi di backend dan gunakan nilai yang sama untuk
+     ringkasan booking, pembayaran DP, dan sisa pelunasan.
+   - Referensi: frontend/src/components/BookingSection.jsx,
+     frontend/src/components/MyBookings.jsx,
+     backend/controllers/bookingController.mjs,
+     backend/controllers/paymentController.mjs.
+
+8. Selaraskan atau hapus jalur booking lama di App.jsx.
+   - Handler handleBooking tidak mengirim dp_amount, sedangkan backend kini
+     mensyaratkannya.
+   - Handler ini tampaknya bukan jalur checkout aktif, tetapi harus
+     diselaraskan atau dihapus agar tidak menimbulkan kegagalan jika digunakan.
+   - Referensi: frontend/src/App.jsx.
+
+PRIORITAS MENENGAH - OPERASIONAL DAN KUALITAS
+
+9. Perbaiki health check dan kesiapan koneksi database.
+   - Server hanya mencatat kegagalan koneksi awal dan tetap dapat berjalan.
+   - Endpoint health check saat ini tidak memeriksa koneksi database.
+   - Bedakan status aplikasi aktif dan status kesiapan database.
+   - Referensi: backend/db.mjs, backend/index.mjs.
+
+10. Pindahkan URL API frontend ke konfigurasi environment.
+    - URL localhost:5000 ditulis langsung di beberapa komponen.
+    - Konfigurasi lokal dan deployment perlu dapat diatur terpisah.
+    - Referensi: frontend/src/App.jsx dan komponen frontend yang memanggil API.
+
+11. Batasi CORS ke domain frontend yang diizinkan.
+    - CORS saat ini dikonfigurasi secara umum.
+    - Catatan: CORS bukan pengganti autentikasi dan otorisasi.
+    - Referensi: backend/index.mjs.
+
+12. Terapkan autentikasi end-to-end dan evaluasi penyimpanan token.
+    - Token disimpan di localStorage dan belum tampak dipakai untuk
+      mengautentikasi permintaan API.
+    - Setelah middleware server diterapkan, pastikan semua request yang perlu
+      autentikasi benar-benar mengirim dan memvalidasi token.
+    - Evaluasi risiko XSS dan opsi penyimpanan token yang lebih aman.
+    - Referensi: frontend/src/App.jsx, frontend/src/components/Login.jsx.
+
+13. Tambahkan validasi input server-side.
+    - Validasi format tanggal dan jam, jam operasional, durasi, nama, nomor HP,
+      nominal pembayaran, serta status/transisi booking.
+    - Jangan hanya mengandalkan validasi pada kontrol frontend.
+
+14. Pastikan zona waktu konsisten untuk auto-cancel.
+    - Aturan pembatalan memakai waktu database; pastikan zona waktu server dan
+      MySQL konsisten dengan WIB.
+    - Uji batas lima menit sebelum waktu mulai.
+    - Referensi: backend/services/autoCancelService.mjs.
+
+15. Selaraskan dokumentasi skema dan status.
+    - ERD dan daftar status di dokumentasi perlu sesuai dengan struktur dan
+      status yang benar-benar digunakan aplikasi.
+    - Referensi: TAHAP_PEMBUATAN_PROYEK.md.
+
+URUTAN TINDAK LANJUT YANG DISARANKAN
+
+1. Autentikasi dan otorisasi semua endpoint, termasuk kepemilikan booking.
+2. Verifikasi reset password dengan OTP dan rate limiting.
+3. Verifikasi pembayaran menggunakan webhook Midtrans server-to-server.
+4. Validasi transisi status dan konsistensi penguncian jadwal.
+5. Pastikan migrasi dp_amount diterapkan dan error booking lebih informatif.
+6. Satukan aturan harga/DP dan rapikan konfigurasi, health check, CORS, serta
+   zona waktu.
+7. Tambahkan tes backend dan integrasi untuk akses tanpa izin, reset password,
+   status pembayaran, nominal DP, konflik slot, reschedule, dan auto-cancel.
+8. Jalankan lint dan build frontend serta tes integrasi setelah perubahan.
+
+BATASAN ANALISIS
+
+- Catatan ini berasal dari pemeriksaan statis kode; belum dilakukan build,
+  pengujian integrasi, atau pemeriksaan database aktif.
+- Temuan menunjukkan area yang perlu diverifikasi dan ditangani; perilaku
+  runtime perlu diuji sebelum menyimpulkan dampak spesifik.

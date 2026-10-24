@@ -6,6 +6,11 @@ import toast from "react-hot-toast";
 
 const API_URL = "http://localhost:5000/api";
 
+const formatBookingDate = (value, options) => {
+    const [year, month, day] = String(value).split("T")[0].split("-").map(Number);
+    return new Date(year, month - 1, day).toLocaleDateString("id-ID", options);
+};
+
 export default function MyBookingsModal({ currentUser, onClose }) {
     const [bookings, setBookings] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -27,9 +32,13 @@ export default function MyBookingsModal({ currentUser, onClose }) {
                 `${API_URL}/my-bookings?phone_number=${currentUser.phone_number}`
             );
 
-            const sortedBookings = res.data.sort((a, b) => {
-                const dateOnlyA = a.booking_date.split('T')[0];
-                const dateOnlyB = b.booking_date.split('T')[0];
+            const normalizedBookings = res.data.map((booking) => ({
+                ...booking,
+                booking_date: booking.booking_date_local || String(booking.booking_date).split("T")[0],
+            }));
+            const sortedBookings = normalizedBookings.sort((a, b) => {
+                const dateOnlyA = a.booking_date;
+                const dateOnlyB = b.booking_date;
                 const timeA = new Date(`${dateOnlyA}T${a.start_time}`);
                 const timeB = new Date(`${dateOnlyB}T${b.start_time}`);
                 return timeA - timeB;
@@ -66,14 +75,33 @@ export default function MyBookingsModal({ currentUser, onClose }) {
         const toastId = toast.loading("Mencari slot kosong di hari yang sama...");
 
         try {
-            const targetDate = booking.booking_date.split("T")[0];
-            const checkRes = await axios.get(`${API_URL}/bookings?date=${targetDate}`);
-            const activeBookings = checkRes.data;
+            const targetDate = booking.booking_date;
+            const checkRes = await axios.get(`${API_URL}/bookings`, {
+                params: {
+                    date: targetDate,
+                    exclude_booking_id: booking.id,
+                },
+            });
+            const activeBookings = checkRes.data.filter((otherBooking) => {
+                const status = String(otherBooking.status || "").trim().toUpperCase();
+                const otherBookingDate = String(otherBooking.booking_date || "").split("T")[0];
+                return (
+                    otherBookingDate === targetDate &&
+                    (status === "BOOKED" || status === "BOOKED_PAID")
+                );
+            });
 
             const oldStartH = parseInt(booking.start_time.split(":")[0], 10);
             let oldEndH = parseInt(booking.end_time.split(":")[0], 10);
             if (oldEndH === 0) oldEndH = 24;
             const duration = oldEndH - oldStartH;
+
+            const toMinutes = (time) => {
+                const [hours, minutes = "00"] = String(time).split(":");
+                const parsedHours = Number(hours);
+                return (parsedHours === 0 && Number(minutes) === 0 ? 24 : parsedHours) * 60
+                    + Number(minutes);
+            };
 
             const allSlots = [
                 "08:00", "09:00", "10:00", "11:00", "12:00", "13:00",
@@ -82,24 +110,15 @@ export default function MyBookingsModal({ currentUser, onClose }) {
             ];
 
             const validSlots = allSlots.filter((time) => {
-                const startH = parseInt(time.split(":")[0], 10);
-                if (time === booking.start_time.substring(0, 5)) return false;
+                const candidateStart = toMinutes(time);
+                const candidateEnd = candidateStart + duration * 60;
+                if (candidateEnd > 24 * 60) return false;
 
-                let isConflict = false;
-                for (let i = 0; i < duration; i++) {
-                    const checkHour = startH + i;
-                    if (checkHour >= 24) { isConflict = true; break; }
-
-                    const conflict = activeBookings.some((b) => {
-                        if (b.id === booking.id) return false;
-                        const bStart = parseInt(b.start_time.split(":")[0], 10);
-                        let bEnd = parseInt(b.end_time.split(":")[0], 10);
-                        if (bEnd === 0) bEnd = 24;
-                        return checkHour >= bStart && checkHour < bEnd;
-                    });
-                    if (conflict) { isConflict = true; break; }
-                }
-                return !isConflict;
+                return !activeBookings.some((otherBooking) => {
+                    const bookedStart = toMinutes(otherBooking.start_time);
+                    const bookedEnd = toMinutes(otherBooking.end_time);
+                    return candidateStart < bookedEnd && candidateEnd > bookedStart;
+                });
             });
 
             setAvailableSlots(validSlots);
@@ -131,7 +150,8 @@ export default function MyBookingsModal({ currentUser, onClose }) {
             setRescheduleData(null);
             fetchMyBookings();
         } catch (err) {
-            toast.error("Gagal mengganti jadwal.", { id: toastId });
+            const errorMsg = err.response?.data?.message || "Gagal mengganti jadwal.";
+            toast.error(errorMsg, { id: toastId });
         }
     };
 
@@ -145,7 +165,7 @@ export default function MyBookingsModal({ currentUser, onClose }) {
 
             const paketHarga = { 1: 200000, 2: 375000, 3: 550000 };
             const totalPrice = paketHarga[duration] || (duration * 200000);
-            const dpAmount = totalPrice * 0.25;
+            const dpAmount = Number(booking.dp_amount) || totalPrice * 0.25;
 
             const resToken = await axios.post(`${API_URL}/payment/token`, {
                 customer_name: booking.customer_name,
@@ -155,15 +175,24 @@ export default function MyBookingsModal({ currentUser, onClose }) {
             });
 
             toast.dismiss(toastId);
+            let paymentSucceeded = false;
             window.snap.pay(resToken.data.token, {
                 onSuccess: async function () {
-                    await axios.put(`${API_URL}/bookings/${booking.id}/status`, { status: "BOOKED" });
-                    toast.success("Pembayaran berhasil! Status diperbarui.");
-                    fetchMyBookings();
+                    paymentSucceeded = true;
+                    try {
+                        await axios.put(`${API_URL}/bookings/${booking.id}/status`, { status: "BOOKED" });
+                        toast.success("Pembayaran berhasil! Status diperbarui.");
+                    } catch (err) {
+                        toast.error(err.response?.data?.message || "Pembayaran diterima, tetapi jadwal gagal dikonfirmasi. Hubungi admin.");
+                    } finally {
+                        fetchMyBookings();
+                    }
                 },
                 onPending: function () { toast.info("Menunggu pembayaran diselesaikan."); },
                 onError: function () { toast.error("Pembayaran gagal."); },
-                onClose: function () { toast("Jendela pembayaran ditutup."); }
+                onClose: function () {
+                    if (!paymentSucceeded) toast("Jendela pembayaran ditutup.");
+                }
             });
         } catch (err) {
             toast.error("Gagal membuka gerbang pembayaran.", { id: toastId });
@@ -182,7 +211,8 @@ export default function MyBookingsModal({ currentUser, onClose }) {
 
             const paketHarga = { 1: 200000, 2: 375000, 3: 550000 };
             const totalPrice = paketHarga[duration] || (duration * 200000);
-            const sisaPelunasan = totalPrice - (totalPrice * 0.25);
+            const dpAmount = Number(pelunasanData.dp_amount) || totalPrice * 0.25;
+            const sisaPelunasan = totalPrice - dpAmount;
 
             const resToken = await axios.post(`${API_URL}/payment/token`, {
                 customer_name: pelunasanData.customer_name,
@@ -208,6 +238,20 @@ export default function MyBookingsModal({ currentUser, onClose }) {
         } catch (err) {
             toast.error("Gagal membuka gerbang pembayaran.", { id: toastId });
         }
+    };
+
+    // Helper format jam mulai & durasi sewa
+    const formatBookingTime = (startTime, endTime) => {
+        if (!startTime) return "-";
+        const startHour = parseInt(startTime.split(":")[0], 10);
+        const startMinute = startTime.split(":")[1] || "00";
+        const formattedStart = `${startHour.toString().padStart(2, "0")}:${startMinute}`;
+
+        let endHour = endTime ? parseInt(endTime.split(":")[0], 10) : startHour + 1;
+        if (endHour === 0) endHour = 24;
+
+        const duration = Math.max(1, endHour - startHour);
+        return `${formattedStart} WIB (${duration} Jam)`;
     };
 
     const getStatusStyle = (status) => {
@@ -264,6 +308,7 @@ export default function MyBookingsModal({ currentUser, onClose }) {
                                 const isPending = b.status === 'PENDING_DP';
                                 const isBooked = b.status === 'BOOKED';
                                 const isBookedPaid = b.status === 'BOOKED_PAID';
+                                const canReschedule = isPending || isBooked || isBookedPaid;
 
                                 return (
                                     <div key={b.id} className="group flex flex-col p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl transition-all">
@@ -272,12 +317,12 @@ export default function MyBookingsModal({ currentUser, onClose }) {
                                                 <div className="flex items-center space-x-2 text-slate-600 dark:text-slate-300">
                                                     <CalendarDays className="w-4 h-4 text-blue-500 dark:text-emerald-500" />
                                                     <span className="text-xs font-bold uppercase tracking-wider">
-                                                        {new Date(b.booking_date).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                                                        {formatBookingDate(b.booking_date, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                                                     </span>
                                                 </div>
                                                 <div className="flex items-center space-x-2 text-slate-900 dark:text-white">
                                                     <Clock className="w-4 h-4 text-slate-400" />
-                                                    <span className="text-sm font-black tracking-tight">{b.start_time} - {b.end_time} WIB</span>
+                                                    <span className="text-sm font-black tracking-tight">{formatBookingTime(b.start_time, b.end_time)}</span>
                                                 </div>
                                                 <p className="text-[10px] text-slate-400 font-medium">ID: #{b.id} • Atas Nama: <span className="font-bold text-slate-600 dark:text-slate-300">{b.customer_name}</span></p>
                                             </div>
@@ -309,7 +354,7 @@ export default function MyBookingsModal({ currentUser, onClose }) {
                                                 </button>
                                             )}
 
-                                            {isBooked && (
+                                            {canReschedule && (
                                                 <button onClick={() => openRescheduleModal(b)} className="flex items-center justify-center flex-1 sm:flex-none bg-amber-500/10 hover:bg-amber-500 text-amber-600 dark:text-amber-400 hover:text-white py-2 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider transition-colors border border-amber-500/20">
                                                     <Repeat className="w-3 h-3 mr-1.5" /> Ganti Jam
                                                 </button>
@@ -346,7 +391,7 @@ export default function MyBookingsModal({ currentUser, onClose }) {
 
                                 const paketHarga = { 1: 200000, 2: 375000, 3: 550000 };
                                 const totalPrice = paketHarga[duration] || (duration * 200000);
-                                const dpAmount = totalPrice * 0.25;
+                                const dpAmount = Number(pelunasanData.dp_amount) || totalPrice * 0.25;
                                 const sisaPelunasan = totalPrice - dpAmount;
 
                                 return (
@@ -393,8 +438,8 @@ export default function MyBookingsModal({ currentUser, onClose }) {
                             <div className="space-y-3 text-xs text-slate-600 dark:text-slate-300 font-medium">
                                 <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1"><span>ID Pesanan:</span><strong className="text-slate-900 dark:text-white">#{selectedProof.id}</strong></div>
                                 <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1"><span>Nama:</span><strong className="text-slate-900 dark:text-white">{selectedProof.customer_name}</strong></div>
-                                <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1"><span>Tgl Main:</span><strong className="text-slate-900 dark:text-white">{new Date(selectedProof.booking_date).toLocaleDateString('id-ID')}</strong></div>
-                                <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1"><span>Jam Main:</span><strong className="text-slate-900 dark:text-white">{selectedProof.start_time} - {selectedProof.end_time} WIB</strong></div>
+                                <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1"><span>Tgl Main:</span><strong className="text-slate-900 dark:text-white">{formatBookingDate(selectedProof.booking_date)}</strong></div>
+                                <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-1"><span>Jam Main:</span><strong className="text-slate-900 dark:text-white">{formatBookingTime(selectedProof.start_time, selectedProof.end_time)}</strong></div>
                                 <div className="flex justify-between pt-1">
                                     <span>Status:</span>
                                     <span className={`font-black uppercase tracking-wider ${selectedProof.status === 'BOOKED_PAID' ? 'text-blue-500' : 'text-emerald-500'}`}>
@@ -416,7 +461,7 @@ export default function MyBookingsModal({ currentUser, onClose }) {
                     <div className="absolute inset-0 z-[60] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
                         <motion.form initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} onSubmit={handleExecuteReschedule} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-sm rounded-2xl p-6 shadow-2xl relative">
                             <h3 className="text-base font-black text-slate-900 dark:text-white uppercase tracking-tight mb-1">Ganti Jam Main</h3>
-                            <p className="text-[10px] text-amber-500 font-bold mb-4 uppercase tracking-widest">Tanggal Tetap: {new Date(rescheduleData.booking_date).toLocaleDateString('id-ID')}</p>
+                            <p className="text-[10px] text-amber-500 font-bold mb-4 uppercase tracking-widest">Tanggal Tetap: {formatBookingDate(rescheduleData.booking_date)}</p>
 
                             <div className="mb-5">
                                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2">Pilih Jam Pengganti (Tersedia)</label>

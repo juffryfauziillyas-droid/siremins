@@ -8,7 +8,7 @@ import {
 
 export default function BookingSection({
                                            onClose, selectedDate, setSelectedDate, timeSlots, getSlotStatus,
-                                           formData, setFormData, onUpdateBookingTime, duration
+                                           formData, setFormData, onUpdateBookingTime, onBookingConfirmed, duration
                                        }) {
     const API_URL = "http://localhost:5000/api";
 
@@ -28,19 +28,15 @@ export default function BookingSection({
         return `${year}-${month}-${day}`;
     })();
 
-    // 2. FUNGSI CEK BATAS 24 JAM
-    const checkIsTooSoon = (dateStr, timeStr) => {
-        if (!dateStr || !timeStr) return false;
-        const slotDateTime = new Date(`${dateStr}T${timeStr}:00`);
-        const twentyFourHoursFromNow = new Date(new Date().getTime() + (24 * 60 * 60 * 1000));
-        return slotDateTime < twentyFourHoursFromNow;
-    };
+    // 2. RESET FORM SAAT TANGGAL DIGANTI
+    useEffect(() => {
+        setFormData((prev) => ({ ...prev, start_time: "", end_time: "" }));
+    }, [selectedDate, setFormData]);
 
-    // 3. RESET FORM SAAT TANGGAL DIGANTI
     useEffect(() => {
         setDpAmount(minimalDP);
-        setFormData((prev) => ({ ...prev, start_time: "", end_time: "", dp_amount: minimalDP }));
-    }, [selectedDate, minimalDP, setFormData]);
+        setFormData((prev) => ({ ...prev, dp_amount: minimalDP }));
+    }, [minimalDP, setFormData]);
 
     const isDpValid = dpAmount >= minimalDP && dpAmount <= totalPrice;
 
@@ -58,7 +54,7 @@ export default function BookingSection({
         for (let i = 0; i < reqDuration; i++) {
             const checkTime = `${(startHour + i).toString().padStart(2, "0")}:00`;
             const s = getSlotStatus(checkTime);
-            if (s === "PENDING_DP" || s === "BOOKED") {
+            if (s === "BOOKED" || s === "BOOKED_PAID") {
                 isOverlap = true;
                 break;
             }
@@ -84,6 +80,7 @@ export default function BookingSection({
         try {
             const resBooking = await axios.post(`${API_URL}/bookings`, {
                 ...formData,
+                dp_amount: dpAmount,
                 booking_date: selectedDate
             });
             const currentBookingId = resBooking.data.bookingId;
@@ -96,12 +93,24 @@ export default function BookingSection({
             });
 
             toast.dismiss(toastId);
+            let paymentSucceeded = false;
 
             window.snap.pay(resToken.data.token, {
-                onSuccess: async function (result) {
-                    await axios.put(`${API_URL}/bookings/${currentBookingId}/status`, { status: "BOOKED" });
-                    toast.success("Pembayaran berhasil! Jadwal telah diamankan.");
-                    onClose();
+                onSuccess: async function () {
+                    paymentSucceeded = true;
+                    try {
+                        await axios.put(`${API_URL}/bookings/${currentBookingId}/status`, { status: "BOOKED" });
+                        toast.success("Pembayaran berhasil! Jadwal telah diamankan.");
+                    } catch (error) {
+                        toast.error(error.response?.data?.message || "Pembayaran diterima, tetapi jadwal gagal dikonfirmasi. Hubungi admin.");
+                    } finally {
+                        try {
+                            await onBookingConfirmed();
+                        } catch (error) {
+                            console.error("Gagal memperbarui slot setelah pembayaran:", error);
+                            toast.error("Daftar slot gagal diperbarui.");
+                        }
+                    }
                 },
                 onPending: function (result) {
                     toast.info("Menunggu pembayaran Anda diselesaikan.");
@@ -109,14 +118,16 @@ export default function BookingSection({
                 onError: function (result) {
                     toast.error("Pembayaran gagal. Silakan ulangi pemesanan.");
                 },
-                onClose: async function () {
-                    await axios.put(`${API_URL}/bookings/${currentBookingId}/status`, { status: "CANCELLED" });
-                    toast.error("Anda menutup jendela pembayaran. Pesanan dibatalkan.");
+                onClose: function () {
+                    if (!paymentSucceeded) {
+                        toast("Booking tetap Pending DP. Lanjutkan pembayaran melalui My Booking.");
+                    }
                 }
             });
 
         } catch (error) {
-            toast.error("Gagal menghubungkan ke Payment Gateway.", { id: toastId });
+            const errorMsg = error.response?.data?.message || "Gagal menghubungkan ke Payment Gateway.";
+            toast.error(errorMsg, { id: toastId });
             console.error(error);
         }
     };
@@ -160,7 +171,6 @@ export default function BookingSection({
                         <div className="flex flex-wrap items-center gap-4 text-[10px] font-bold bg-black/40 p-4 rounded-2xl border border-white/5 text-slate-300">
                             <div className="flex items-center space-x-1.5"><span className="w-2.5 h-2.5 bg-emerald-500 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.6)]"></span><span>Tersedia</span></div>
                             <div className="flex items-center space-x-1.5"><span className="w-2.5 h-2.5 bg-rose-500 rounded-full shadow-[0_0_10px_rgba(244,63,94,0.6)]"></span><span>Terpesan / DP</span></div>
-                            <div className="flex items-center space-x-1.5"><span className="w-2.5 h-2.5 bg-slate-500 rounded-full shadow-[0_0_10px_rgba(100,116,139,0.6)]"></span><span>Batas 24 Jam</span></div>
                         </div>
 
                         <div className="bg-black/40 p-5 rounded-3xl border border-white/5">
@@ -170,30 +180,29 @@ export default function BookingSection({
                                     const status = getSlotStatus(time);
                                     const isSelected = formData.start_time === time;
 
-                                    const isTooSoon = checkIsTooSoon(selectedDate, time);
-
+                                    const isBooked = status !== "AVAILABLE";
                                     let btnClass = "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 hover:bg-emerald-500 hover:text-slate-900";
 
-                                    if (status === "PENDING_DP" || status === "BOOKED") {
-                                        btnClass = "bg-rose-500/10 text-rose-500 border-rose-500/20 opacity-50 cursor-not-allowed";
-                                    } else if (isTooSoon && status === "AVAILABLE") {
-                                        btnClass = "bg-slate-500/10 text-slate-500 border-slate-500/20 opacity-50 cursor-not-allowed";
+                                    if (isBooked) {
+                                        btnClass = "bg-rose-500/25 text-rose-400 border-rose-500/60 cursor-not-allowed";
+                                    } else if (isSelected) {
+                                        btnClass = "bg-emerald-400 text-slate-950 font-black shadow-[0_0_15px_rgba(52,211,153,0.5)] border-transparent scale-105";
                                     }
 
-                                    if (isSelected) btnClass = "bg-emerald-400 text-slate-950 font-black shadow-[0_0_15px_rgba(52,211,153,0.5)] border-transparent scale-105";
-
-                                    const isDisabled = status !== "AVAILABLE" || isTooSoon;
+                                    const isDisabled = status !== "AVAILABLE";
+                                    const statusLabel = isBooked ? "Booked" : undefined;
 
                                     return (
-                                        <button
-                                            key={time}
-                                            type="button"
-                                            disabled={isDisabled}
-                                            onClick={() => handleTimeSelection(time, duration)}
-                                            className={`p-2.5 rounded-xl border transition-all duration-200 text-sm font-bold ${btnClass}`}
-                                        >
-                                            {time}
-                                        </button>
+                                        <span key={time} title={statusLabel} className="block">
+                                            <button
+                                                type="button"
+                                                disabled={isDisabled}
+                                                onClick={() => handleTimeSelection(time, duration)}
+                                                className={`w-full p-2.5 rounded-xl border transition-all duration-200 text-sm font-bold ${btnClass}`}
+                                            >
+                                                {time}
+                                            </button>
+                                        </span>
                                     );
                                 })}
                             </div>

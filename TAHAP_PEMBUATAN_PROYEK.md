@@ -80,6 +80,7 @@ erDiagram
         date booking_date
         time start_time
         time end_time
+        int dp_amount "Nominal DP yang dipilih"
         enum status "PENDING, APPROVED, CANCELLED"
         datetime created_at
     }

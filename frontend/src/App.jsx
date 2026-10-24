@@ -44,12 +44,6 @@ export default function App() {
     return document.documentElement.classList.contains("dark");
   });
 
-  const [showBooking, setShowBooking] = useState(false);
-  const [showLogin, setShowLogin] = useState(false);
-  const [showAccount, setShowAccount] = useState(false);
-  const [showMyBookings, setShowMyBookings] = useState(false);
-  const [showLogout, setShowLogout] = useState(false);
-
   const [currentUser, setCurrentUser] = useState(() => {
     const savedUser = localStorage.getItem("userData");
     const savedAdmin = localStorage.getItem("adminData");
@@ -57,6 +51,34 @@ export default function App() {
     if (savedAdmin) return JSON.parse(savedAdmin);
     return null;
   });
+
+  const [showBooking, setShowBooking] = useState(() =>
+    currentUser?.role === "user" && sessionStorage.getItem("siremins-active-modal") === "booking"
+  );
+  const [showLogin, setShowLogin] = useState(false);
+  const [showAccount, setShowAccount] = useState(() =>
+    currentUser?.role === "user" && sessionStorage.getItem("siremins-active-modal") === "account"
+  );
+  const [showMyBookings, setShowMyBookings] = useState(() =>
+    currentUser?.role === "user" && sessionStorage.getItem("siremins-active-modal") === "my-bookings"
+  );
+  const [showLogout, setShowLogout] = useState(false);
+
+  useEffect(() => {
+    const activeModal = showBooking
+      ? "booking"
+      : showMyBookings
+        ? "my-bookings"
+        : showAccount
+          ? "account"
+          : null;
+
+    if (activeModal && currentUser?.role === "user") {
+      sessionStorage.setItem("siremins-active-modal", activeModal);
+    } else {
+      sessionStorage.removeItem("siremins-active-modal");
+    }
+  }, [currentUser, showBooking, showMyBookings, showAccount]);
 
   const updateBookingTime = (startTime, requestedDuration) => {
     const startHour = parseInt(startTime.split(":")[0], 10);
@@ -100,6 +122,32 @@ export default function App() {
   }, [darkMode]);
 
   useEffect(() => {
+    if (!showBooking) return undefined;
+
+    let isActive = true;
+    const fetchBookedSlots = async () => {
+      try {
+        const response = await axios.get(`${API_URL}/bookings`, {
+          params: { date: selectedDate },
+        });
+        if (isActive) setBookedSlots(response.data);
+      } catch (error) {
+        if (isActive) console.error("Gagal mengambil data jadwal:", error);
+      }
+    };
+
+    fetchBookedSlots();
+    const intervalId = window.setInterval(fetchBookedSlots, 10000);
+    window.addEventListener("focus", fetchBookedSlots);
+
+    return () => {
+      isActive = false;
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", fetchBookedSlots);
+    };
+  }, [selectedDate, showBooking]);
+
+  useEffect(() => {
     if (
       showBooking ||
       showLogin ||
@@ -107,12 +155,6 @@ export default function App() {
       showMyBookings ||
       showLogout
     ) {
-      if (showBooking) {
-        axios
-          .get(`${API_URL}/bookings?date=${selectedDate}`)
-          .then((res) => setBookedSlots(res.data))
-          .catch((err) => console.error("Gagal mengambil data jadwal:", err));
-      }
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "unset";
@@ -183,11 +225,7 @@ export default function App() {
         const match = bookedSlots.find((slot) => {
             const bStart = parseInt(slot.start_time.split(":")[0], 10);
             let bEnd = parseInt(slot.end_time.split(":")[0], 10);
-
-            // PERBAIKAN: Jika jam selesai adalah 00:00 (tengah malam), anggap sebagai jam 24
-            if (bEnd === 0) {
-                bEnd = 24;
-            }
+            if (bEnd === 0) bEnd = 24;
 
             const currentHour = parseInt(time.split(":")[0], 10);
             return currentHour >= bStart && currentHour < bEnd;
@@ -195,6 +233,15 @@ export default function App() {
 
         return match ? match.status : "AVAILABLE";
     };
+
+  const handleBookingConfirmed = async () => {
+    const updatedData = await axios.get(
+      `${API_URL}/bookings?date=${selectedDate}`,
+    );
+    setBookedSlots(updatedData.data);
+    setFormData((prev) => ({ ...prev, start_time: "", end_time: "" }));
+    setDuration(1);
+  };
 
   const handleBooking = async (e) => {
     e.preventDefault();
@@ -248,18 +295,16 @@ export default function App() {
           }}
         />
 
-        {/* TAMPILKAN NAVBAR HANYA JIKA BUKAN ADMIN */}
-        {currentUser?.role !== "admin" && (
-          <Navbar
-            darkMode={darkMode}
-            setDarkMode={setDarkMode}
-            onLoginClick={() => setShowLogin(true)}
-            currentUser={currentUser}
-            onOpenAccount={() => setShowAccount(true)}
-            onOpenMyBookings={() => setShowMyBookings(true)}
-            onOpenLogout={() => setShowLogout(true)}
-          />
-        )}
+        <Navbar
+          darkMode={darkMode}
+          setDarkMode={setDarkMode}
+          onLoginClick={() => setShowLogin(true)}
+          currentUser={currentUser}
+          isAdmin={currentUser?.role === "admin"}
+          onOpenAccount={() => setShowAccount(true)}
+          onOpenMyBookings={() => setShowMyBookings(true)}
+          onOpenLogout={() => setShowLogout(true)}
+        />
 
         {/* RENDER KONDISIONAL UTAMA */}
         {currentUser?.role === "admin" ? (
@@ -306,6 +351,7 @@ export default function App() {
               formData={formData}
               setFormData={setFormData}
               onUpdateBookingTime={updateBookingTime}
+              onBookingConfirmed={handleBookingConfirmed}
               duration={duration}
               handleBooking={handleBooking}
             />

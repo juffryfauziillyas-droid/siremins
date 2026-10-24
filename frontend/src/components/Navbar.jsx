@@ -17,6 +17,7 @@ export default function Navbar({
   setDarkMode,
   onLoginClick,
   currentUser,
+  isAdmin = false,
   onOpenAccount,
   onOpenMyBookings, 
   onOpenLogout,
@@ -81,7 +82,7 @@ export default function Navbar({
         </a>
 
         {/* MENU TAUTAN DESKTOP */}
-        <nav className="hidden md:flex items-center space-x-1 bg-slate-100/80 dark:bg-slate-900/60 backdrop-blur-sm p-1.5 rounded-2xl border border-slate-200/60 dark:border-slate-800/60">
+        {!isAdmin && <nav className="hidden md:flex items-center space-x-1 bg-slate-100/80 dark:bg-slate-900/60 backdrop-blur-sm p-1.5 rounded-2xl border border-slate-200/60 dark:border-slate-800/60">
           <a
             href="#hero"
             className="px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-emerald-400 rounded-xl hover:bg-white dark:hover:bg-slate-800 transition-all duration-200 uppercase tracking-wider"
@@ -100,7 +101,7 @@ export default function Navbar({
           >
             Bantuan & WA
           </a>
-        </nav>
+        </nav>}
 
         {/* TOMBOL AKSI DESKTOP */}
         <div className="hidden md:flex items-center space-x-3">
@@ -117,7 +118,7 @@ export default function Navbar({
             )}
           </button>
 
-          {currentUser ? (
+          {!isAdmin && currentUser ? (
             /* DROPDOWN INFO AKUN, RIWAYAT BOOKING & LOGOUT */
             <div className="relative" ref={dropdownRef}>
               <button
@@ -182,7 +183,7 @@ export default function Navbar({
                 </div>
               )}
             </div>
-          ) : (
+          ) : !isAdmin ? (
             <button
               type="button"
               onClick={onLoginClick}
@@ -191,7 +192,7 @@ export default function Navbar({
               <LogIn className="w-4 h-4" />
               <span>Masuk</span>
             </button>
-          )}
+          ) : null}
         </div>
 
         {/* MENU MOBILE BUTTON */}
@@ -207,22 +208,24 @@ export default function Navbar({
               <Moon className="w-5 h-5" />
             )}
           </button>
-          <button
-            type="button"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800"
-          >
-            {isMobileMenuOpen ? (
-              <X className="w-6 h-6" />
-            ) : (
-              <Menu className="w-6 h-6" />
-            )}
-          </button>
+          {!isAdmin && (
+            <button
+              type="button"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="p-2 rounded-xl bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800"
+            >
+              {isMobileMenuOpen ? (
+                <X className="w-6 h-6" />
+              ) : (
+                <Menu className="w-6 h-6" />
+              )}
+            </button>
+          )}
         </div>
       </div>
 
       {/* DROPDOWN MENU MOBILE */}
-      {isMobileMenuOpen && (
+      {!isAdmin && isMobileMenuOpen && (
         <div className="md:hidden absolute top-full left-0 right-0 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 p-5 space-y-3 shadow-2xl">
           <div className="flex flex-col space-y-1 font-bold text-sm">
             <a
