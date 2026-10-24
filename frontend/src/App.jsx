@@ -16,6 +16,15 @@ import Footer from "./components/Footer";
 
 const API_URL = "http://localhost:5000/api";
 
+axios.interceptors.request.use((config) => {
+  const isAdminRequest = String(config.url || "").includes("/api/admin/");
+  const token = localStorage.getItem(isAdminRequest ? "adminToken" : "userToken");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 export default function App() {
     // === TEMPATKAN KODE DI SINI ===
     const getTomorrowLocalDateString = () => {
@@ -47,8 +56,8 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(() => {
     const savedUser = localStorage.getItem("userData");
     const savedAdmin = localStorage.getItem("adminData");
-    if (savedUser) return JSON.parse(savedUser);
-    if (savedAdmin) return JSON.parse(savedAdmin);
+    if (savedUser && localStorage.getItem("userToken")) return JSON.parse(savedUser);
+    if (savedAdmin && localStorage.getItem("adminToken")) return JSON.parse(savedAdmin);
     return null;
   });
 
@@ -243,35 +252,6 @@ export default function App() {
     setDuration(1);
   };
 
-  const handleBooking = async (e) => {
-    e.preventDefault();
-
-    // MENAMPILKAN TOAST LOADING SAAT PROSES BOOKING
-    const toastId = toast.loading("Memproses reservasi...");
-
-    try {
-      const response = await axios.post(`${API_URL}/bookings`, {
-        ...formData,
-        booking_date: selectedDate,
-      });
-
-      toast.success(response.data.message, { id: toastId });
-
-      setFormData((prev) => ({ ...prev, start_time: "", end_time: "" }));
-      setDuration(1);
-
-      const updatedData = await axios.get(
-        `${API_URL}/bookings?date=${selectedDate}`,
-      );
-      setBookedSlots(updatedData.data);
-    } catch (error) {
-      const errorMsg =
-        error.response?.data?.message ||
-        "Terjadi kesalahan pada sistem backend.";
-      toast.error(errorMsg, { id: toastId });
-    }
-  };
-
   const fadeInUp = {
     hidden: { opacity: 0, y: 30 },
     visible: {
@@ -353,7 +333,6 @@ export default function App() {
               onUpdateBookingTime={updateBookingTime}
               onBookingConfirmed={handleBookingConfirmed}
               duration={duration}
-              handleBooking={handleBooking}
             />
           )}
         </AnimatePresence>

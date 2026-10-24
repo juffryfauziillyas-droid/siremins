@@ -3,10 +3,9 @@ import jwt from "jsonwebtoken";
 import { createHmac, randomInt, timingSafeEqual } from "node:crypto";
 import db from "../db.mjs";
 import { sendPasswordResetOtp } from "../services/fonnteService.mjs";
+import { getJwtSecret } from "../middleware/authMiddleware.mjs";
 
-const JWT_SECRET = process.env.JWT_SECRET || "siremins_secret_key_123";
-
-// 1. LOGIN CUSTOMER 
+// LOGIN CUST 
 export const login = async (req, res) => {
     try {
         const { phone_number, password } = req.body;
@@ -16,7 +15,7 @@ export const login = async (req, res) => {
         }
 
         const [users] = await db.query(
-            "SELECT * FROM users WHERE phone_number = ?",
+            "SELECT * FROM users WHERE phone_number = ? AND role = 'CUSTOMER'",
             [phone_number]
         );
 
@@ -31,10 +30,9 @@ export const login = async (req, res) => {
             return res.status(400).json({ message: "Nomor HP atau kata sandi salah." });
         }
 
-        // Normalisasi role agar kompatibel dengan frontend ('user' atau 'admin')
-        const userRole = user.role === "ADMIN" ? "admin" : "user";
-
-        const token = jwt.sign({ id: user.id, role: userRole }, JWT_SECRET, {
+        // penyesuaian role
+        const userRole = "user";
+        const token = jwt.sign({ id: user.id, role: userRole }, getJwtSecret(), {
             expiresIn: "1d",
         });
 
@@ -55,7 +53,7 @@ export const login = async (req, res) => {
     }
 };
 
-// 2. REGISTRASI PENGUNJUNG
+// Regist cust
 export const register = async (req, res) => {
     try {
         const { name, phone_number, password } = req.body;
@@ -64,7 +62,7 @@ export const register = async (req, res) => {
             return res.status(400).json({ message: "Semua bidang wajib diisi." });
         }
 
-        // Cek apakah nomor HP sudah terdaftar
+        // Cek nomor HP
         const [existing] = await db.query(
             "SELECT id FROM users WHERE phone_number = ?",
             [phone_number]
@@ -76,7 +74,7 @@ export const register = async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Gunakan 'CUSTOMER' sesuai ENUM database
+        // agar role jadi CUSTOMER
         await db.query(
             "INSERT INTO users (name, phone_number, password, role) VALUES (?, ?, ?, 'CUSTOMER')",
             [name, phone_number, hashedPassword]
@@ -89,7 +87,7 @@ export const register = async (req, res) => {
     }
 };
 
-// 3. KIRIM OTP RESET KATA SANDI VIA WHATSAPP
+// OTP RESET KATA SANDI
 export const requestPasswordResetOtp = async (req, res) => {
     const genericMessage = "Jika nomor terdaftar, OTP akan dikirim melalui WhatsApp. Jika belum diterima, tunggu 1 menit sebelum mencoba lagi.";
 
@@ -305,7 +303,7 @@ export const adminLogin = async (req, res) => {
             return res.status(400).json({ message: "Akses Admin ditolak. Email atau password salah." });
         }
 
-        const token = jwt.sign({ id: admin.id, role: "admin" }, JWT_SECRET, {
+        const token = jwt.sign({ id: admin.id, role: "admin" }, getJwtSecret(), {
             expiresIn: "1d",
         });
 
@@ -328,10 +326,11 @@ export const adminLogin = async (req, res) => {
 // 6. UPDATE PROFIL
 export const updateProfile = async (req, res) => {
     try {
-        const { id, name, currentPassword, newPassword } = req.body;
+        const { name, currentPassword, newPassword } = req.body;
+        const id = req.user.id;
 
-        if (!id || !name) {
-            return res.status(400).json({ message: "ID pengguna dan nama wajib diisi." });
+        if (typeof name !== "string" || !name.trim()) {
+            return res.status(400).json({ message: "Nama wajib diisi." });
         }
 
         const [users] = await db.query("SELECT * FROM users WHERE id = ?", [id]);
@@ -353,12 +352,12 @@ export const updateProfile = async (req, res) => {
 
             const hashedNewPassword = await bcrypt.hash(newPassword, 10);
             await db.query("UPDATE users SET name = ?, password = ? WHERE id = ?", [
-                name,
+                name.trim(),
                 hashedNewPassword,
                 id,
             ]);
         } else {
-            await db.query("UPDATE users SET name = ? WHERE id = ?", [name, id]);
+            await db.query("UPDATE users SET name = ? WHERE id = ?", [name.trim(), id]);
         }
 
         const [updatedUsers] = await db.query(

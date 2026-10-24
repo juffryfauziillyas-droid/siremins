@@ -1,137 +1,146 @@
-CATATAN ANALISIS DAN RENCANA PERBAIKAN SIREMINS
-Dibuat: 24 Oktober 2026
-Catatan ini untuk ditindaklanjuti nanti. Belum ada perubahan kode dari analisis ini.
+CATATAN ANALISIS DAN RENCANA TINDAK LANJUT SIREMINS
+Diperbarui: 24 Oktober 2026
+Daftar prioritas ini hanya memuat tindak lanjut yang belum selesai atau belum
+diverifikasi. Implementasi yang sudah selesai dicatat terpisah agar tidak
+dianggap sebagai pekerjaan coding yang masih terbuka.
+
+STATUS YANG SUDAH DITERAPKAN - BUKAN PRIORITAS PERBAIKAN
+
+- Reset password sudah menggunakan OTP WhatsApp via Fonnte. OTP berlaku 5 menit,
+  ada cooldown 1 menit dan batas 5 percobaan, serta hash OTP disimpan di database.
+- Booking menyimpan nominal dp_amount. Setelah pembayaran diverifikasi Midtrans,
+  nominal penuh mengubah status menjadi BOOKED_PAID.
+- Midtrans Server Key dan mode production/sandbox dibaca dari backend/.env;
+  fallback Server Key di kode sudah dihapus.
+- Prioritas keamanan poin 1 sudah diimplementasikan: autentikasi dan pemeriksaan
+  role admin; autentikasi customer; pemeriksaan kepemilikan booking melalui
+  user_id; dan identitas pemesan berasal dari akun terverifikasi.
+- Webhook Midtrans sudah diimplementasikan: order ID unik dan nominal dicatat;
+  signature diverifikasi; status transaksi diverifikasi kembali melalui API
+  Midtrans; order, nominal, status, dan booking dicocokkan sebelum status booking
+  berubah. Callback browser tidak menetapkan status pembayaran.
+- Endpoint admin/customer tidak dapat menetapkan BOOKED atau BOOKED_PAID secara
+  manual. Admin/customer masih dapat melakukan pembatalan/penolakan sesuai
+  endpoint masing-masing.
+- Aturan transisi backend sudah dibatasi: customer hanya dapat membatalkan
+  booking PENDING_DP/BOOKED; admin hanya dapat REJECTED/CANCELLED untuk
+  PENDING_DP/BOOKED; reschedule hanya untuk PENDING_DP/BOOKED/BOOKED_PAID.
+  Pemeriksaan status reschedule dilakukan kembali dengan row lock dan transaksi.
+- Penanganan gagal membuat booking sudah diperjelas: validasi, konflik jadwal,
+  lock, koneksi, skema, dan kegagalan tak terduga dibedakan; penyebab teknis
+  dicatat di server tanpa membocorkan detail database kepada pengguna.
+- Harga paket dan minimum DP memiliki satu sumber di backend. Endpoint
+  `GET /api/booking-pricing` menyediakan harga untuk formulir; backend yang sama
+  menghitung rincian booking dan pembayaran.
+- Ringkasan total, DP, dan sisa pelunasan My Booking berasal dari API backend.
+- Handler booking lama `handleBooking` di `App.jsx`, yang tidak mengirim
+  `dp_amount`, dan prop yang tidak digunakan telah dihapus. Checkout dilakukan
+  melalui `BookingSection.jsx`.
+
+Runner migrasi dan tabel `schema_migrations` sudah tersedia melalui
+`npm run migrate:status` dan `npm run migrate` dari folder backend. Pemeriksaan
+database aktif belum berhasil dijalankan di sesi ini karena sandbox Windows
+menolak eksekusi perintah; status migrasi aktual masih belum diketahui.
+Notification URL Midtrans, konfigurasi rahasia di `backend/.env`, serta
+pengujian integrasi juga belum diverifikasi.
+Pembayaran sukses yang tiba setelah booking dibatalkan atau jadwalnya bentrok
+dicatat sebagai `PAID_REVIEW` untuk pemeriksaan/refund manual. Transaksi lama
+yang tidak memiliki catatan order lokal perlu dibuatkan token pembayaran baru.
+`JWT_SECRET` wajib berupa nilai acak minimal 32 karakter; pengguna perlu login
+kembali bila secret diganti. Jangan memasukkan nilai rahasia ke dokumen ini
+atau membagikannya lewat chat.
 
 PRIORITAS KRITIS - KEAMANAN
 
-1. Lindungi endpoint dengan autentikasi dan otorisasi server-side.
-   - Rute admin dan profil belum terlihat menggunakan middleware autentikasi/otorisasi.
-   - Jangan mengandalkan pembatasan tampilan frontend sebagai perlindungan API.
-   - Terapkan verifikasi token dan pembatasan role ADMIN pada rute admin.
-   - Terapkan pemeriksaan identitas/kepemilikan pada akses dan perubahan booking.
-   - Referensi: backend/index.mjs, backend/routes/adminRoutes.mjs,
-     backend/routes/authRoutes.mjs, backend/routes/bookingRoutes.mjs.
+1. Deploy dan uji webhook Midtrans pada sandbox sebelum produksi.
+   - Terapkan migrasi tabel transaksi dan atur Notification URL ke
+     `/api/payment/notification`.
+   - Uji DP, pembayaran penuh, pelunasan, notifikasi duplikat, signature/
+     nominal/order salah, status pending/expired, dan callback terlambat.
+   - Pastikan kegagalan panggilan status API Midtrans menghasilkan retry yang
+     aman dari Midtrans, dan siapkan pemantauan `PAID_REVIEW` serta proses
+     pemeriksaan/refund manual.
 
-2. Amankan proses reset password.
-   - Implementasi OTP WhatsApp via Fonnte sudah ditambahkan: OTP berlaku 5 menit,
-     dibatasi satu permintaan per menit, maksimum lima percobaan, hash OTP
-     disimpan di database, dan password diubah setelah OTP valid.
-   - Tindak lanjut operasional: jalankan migrasi
-     backend/migrations/2026-10-24-create-password-reset-otps.sql dan atur
-     FONNTE_TOKEN serta OTP_HASH_SECRET di backend/.env.
-   - Uji pengiriman WhatsApp, OTP salah/kedaluwarsa/terpakai, cooldown, dan
-     verifikasi bahwa akun yang nomor HP-nya tidak terdaftar tidak menerima OTP.
-   - Referensi: backend/controllers/authController.mjs.
-
-3. Verifikasi pembayaran di server menggunakan notifikasi/webhook Midtrans.
-   - Jangan menetapkan status pembayaran hanya dari callback browser.
-   - Validasi signature, status transaksi, order ID, dan nominal di server
-     sebelum memperbarui status booking.
-   - Referensi: backend/controllers/paymentController.mjs,
-     frontend/src/components/BookingSection.jsx,
-     frontend/src/components/MyBookings.jsx.
-
-4. Batasi perubahan status booking.
-   - Validasi status yang diizinkan dan aturan transisi status.
-   - Pastikan booking tidak dapat ditandai BOOKED atau BOOKED_PAID tanpa
-     otorisasi atau verifikasi pembayaran yang sesuai.
-   - Terapkan pemeriksaan konflik dan mekanisme lock secara konsisten.
+2. Uji transisi status booking pada tahap pengujian akhir.
+   - Implementasi sudah membatasi perubahan status sesuai aturan di atas;
+     pengujian otomatis dan integrasi ditunda sampai tahap pengujian akhir.
+   - Uji agar hanya webhook sukses yang mengubah booking ke BOOKED atau
+     BOOKED_PAID; status terminal tidak dapat dibuka kembali melalui endpoint.
+   - Uji reschedule untuk status yang diizinkan dan ditolak.
    - Referensi: backend/controllers/bookingController.mjs,
      backend/controllers/adminController.mjs,
-     backend/services/bookingSlotService.mjs.
+     backend/controllers/paymentController.mjs.
 
 PRIORITAS TINGGI - BOOKING DAN PEMBAYARAN
 
-5. Jalankan dan catat migrasi nominal DP.
-   - Booking baru sekarang menyimpan dp_amount.
-   - Migrasi backend/migrations/2026-10-24-add-booking-dp-amount.sql harus
-     dijalankan pada database sebelum memakai versi backend yang bergantung
-     pada kolom tersebut.
-   - Buat mekanisme migrasi yang tercatat, diuji di staging, dan aman untuk
-     mengetahui migrasi mana yang sudah diterapkan.
-
-6. Perjelas error saat booking gagal dibuat.
-   - createBooking mengembalikan pesan umum untuk semua error.
-   - Catat error teknis dengan konteks yang cukup di server dan bedakan
-     kegagalan skema, koneksi, validasi, konflik, dan lock.
-   - Jangan mengirim detail internal database kepada pengguna.
-   - Referensi: backend/controllers/bookingController.mjs.
-
-7. Jadikan backend sumber kebenaran perhitungan harga dan DP.
-   - Harga paket dan rumus DP tersebar di beberapa komponen frontend dan
-     backend sehingga dapat berbeda.
-   - Satukan perhitungan/validasi di backend dan gunakan nilai yang sama untuk
-     ringkasan booking, pembayaran DP, dan sisa pelunasan.
-   - Referensi: frontend/src/components/BookingSection.jsx,
-     frontend/src/components/MyBookings.jsx,
-     backend/controllers/bookingController.mjs,
-     backend/controllers/paymentController.mjs.
-
-8. Selaraskan atau hapus jalur booking lama di App.jsx.
-   - Handler handleBooking tidak mengirim dp_amount, sedangkan backend kini
-     mensyaratkannya.
-   - Handler ini tampaknya bukan jalur checkout aktif, tetapi harus
-     diselaraskan atau dihapus agar tidak menimbulkan kegagalan jika digunakan.
-   - Referensi: frontend/src/App.jsx.
+3. Verifikasi dan catat migrasi skema pada setiap database.
+   - Jalankan `npm run migrate:status` dari folder backend untuk melihat kondisi
+     empat migrasi DP, OTP, relasi user_id booking, dan transaksi Midtrans.
+   - Jalankan `npm run migrate` untuk menerapkan migrasi tertunda dan mencatat
+     migrasi yang skemanya sudah terpasang di tabel `schema_migrations`.
+   - Ulangi pada setiap database/environment dan pastikan perintah status
+     berakhir tanpa migrasi `PENDING` atau `UNRECORDED`.
 
 PRIORITAS MENENGAH - OPERASIONAL DAN KUALITAS
 
-9. Perbaiki health check dan kesiapan koneksi database.
-   - Server hanya mencatat kegagalan koneksi awal dan tetap dapat berjalan.
-   - Endpoint health check saat ini tidak memeriksa koneksi database.
+4. Verifikasi akhir penanganan error booking.
+   - Implementasi kategorisasi dan pesan aman sudah selesai, tetapi build,
+     pengujian runtime, dan pengujian tiap kategori error belum dilakukan.
+   - Jalankan bersama pengujian akhir sesuai jadwal pengujian proyek.
+   - Referensi: backend/controllers/bookingController.mjs,
+     backend/services/bookingSlotService.mjs.
+
+5. Perbaiki health check dan kesiapan koneksi database.
+   - Kegagalan koneksi awal hanya dicatat dan server masih dapat berjalan.
+   - Endpoint health check belum memeriksa koneksi database.
    - Bedakan status aplikasi aktif dan status kesiapan database.
    - Referensi: backend/db.mjs, backend/index.mjs.
 
-10. Pindahkan URL API frontend ke konfigurasi environment.
-    - URL localhost:5000 ditulis langsung di beberapa komponen.
-    - Konfigurasi lokal dan deployment perlu dapat diatur terpisah.
-    - Referensi: frontend/src/App.jsx dan komponen frontend yang memanggil API.
+6. Pindahkan URL API frontend ke konfigurasi environment.
+   - URL localhost:5000 masih ditulis langsung di beberapa komponen.
+   - Atur URL lokal dan deployment secara terpisah.
+   - Referensi: frontend/src/App.jsx dan komponen frontend yang memanggil API.
 
-11. Batasi CORS ke domain frontend yang diizinkan.
-    - CORS saat ini dikonfigurasi secara umum.
-    - Catatan: CORS bukan pengganti autentikasi dan otorisasi.
-    - Referensi: backend/index.mjs.
+7. Batasi CORS ke domain frontend yang diizinkan.
+   - CORS saat ini dikonfigurasi secara umum.
+   - CORS bukan pengganti autentikasi dan otorisasi.
+   - Referensi: backend/index.mjs.
 
-12. Terapkan autentikasi end-to-end dan evaluasi penyimpanan token.
-    - Token disimpan di localStorage dan belum tampak dipakai untuk
-      mengautentikasi permintaan API.
-    - Setelah middleware server diterapkan, pastikan semua request yang perlu
-      autentikasi benar-benar mengirim dan memvalidasi token.
-    - Evaluasi risiko XSS dan opsi penyimpanan token yang lebih aman.
-    - Referensi: frontend/src/App.jsx, frontend/src/components/Login.jsx.
+8. Evaluasi risiko XSS dan opsi penyimpanan token yang lebih aman.
+   - Token autentikasi saat ini disimpan di localStorage.
+   - Referensi: frontend/src/App.jsx, frontend/src/components/Login.jsx.
 
-13. Tambahkan validasi input server-side.
-    - Validasi format tanggal dan jam, jam operasional, durasi, nama, nomor HP,
-      nominal pembayaran, serta status/transisi booking.
-    - Jangan hanya mengandalkan validasi pada kontrol frontend.
+9. Lengkapi validasi input server-side.
+   - Validasi tanggal, jam operasional, durasi, nominal DP booking, dan
+     transisi status sudah diterapkan di backend.
+   - Tinjau validasi nama dan nomor HP serta konsistensi validasi input pada
+     endpoint lain; jangan hanya mengandalkan kontrol frontend.
 
-14. Pastikan zona waktu konsisten untuk auto-cancel.
-    - Aturan pembatalan memakai waktu database; pastikan zona waktu server dan
-      MySQL konsisten dengan WIB.
+10. Pastikan zona waktu konsisten untuk auto-cancel.
+    - Pastikan zona waktu server dan MySQL konsisten dengan WIB.
     - Uji batas lima menit sebelum waktu mulai.
     - Referensi: backend/services/autoCancelService.mjs.
 
-15. Selaraskan dokumentasi skema dan status.
-    - ERD dan daftar status di dokumentasi perlu sesuai dengan struktur dan
-      status yang benar-benar digunakan aplikasi.
+11. Selaraskan dokumentasi skema dan status.
+    - ERD dan daftar status perlu sesuai dengan struktur dan status yang
+      digunakan aplikasi.
     - Referensi: TAHAP_PEMBUATAN_PROYEK.md.
 
 URUTAN TINDAK LANJUT YANG DISARANKAN
 
-1. Autentikasi dan otorisasi semua endpoint, termasuk kepemilikan booking.
-2. Verifikasi reset password dengan OTP dan rate limiting.
-3. Verifikasi pembayaran menggunakan webhook Midtrans server-to-server.
-4. Validasi transisi status dan konsistensi penguncian jadwal.
-5. Pastikan migrasi dp_amount diterapkan dan error booking lebih informatif.
-6. Satukan aturan harga/DP dan rapikan konfigurasi, health check, CORS, serta
-   zona waktu.
-7. Tambahkan tes backend dan integrasi untuk akses tanpa izin, reset password,
-   status pembayaran, nominal DP, konflik slot, reschedule, dan auto-cancel.
-8. Jalankan lint dan build frontend serta tes integrasi setelah perubahan.
+1. Terapkan migrasi yang belum ada, set konfigurasi environment, dan atur
+   Notification URL Midtrans.
+2. Uji webhook Midtrans serta kasus `PAID_REVIEW` dan proses refund manual.
+3. Uji akses tanpa izin, kepemilikan booking, dan semua transisi status.
+4. Uji hasil implementasi penanganan error booking, harga terpusat, dan jalur
+   checkout booking bersama pengujian akhir.
+5. Implementasikan health check, konfigurasi URL API, pembatasan CORS,
+   evaluasi token, dan konsistensi zona waktu.
+6. Jalankan lint/build frontend serta tes backend dan integrasi.
 
 BATASAN ANALISIS
 
-- Catatan ini berasal dari pemeriksaan statis kode; belum dilakukan build,
-  pengujian integrasi, atau pemeriksaan database aktif.
-- Temuan menunjukkan area yang perlu diverifikasi dan ditangani; perilaku
-  runtime perlu diuji sebelum menyimpulkan dampak spesifik.
+- Implementasi webhook telah diperiksa secara statis, tetapi build/lint dan
+  pengujian Midtrans sandbox/produksi belum berhasil dilakukan.
+- Status penerapan migrasi, konfigurasi environment, dan URL webhook aktif
+  belum diverifikasi.

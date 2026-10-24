@@ -1,7 +1,6 @@
 import db from "../db.mjs";
-import { confirmBookingSlot } from "../services/bookingSlotService.mjs";
-
-// 1. [ADMIN] AMBIL SEMUA DATA BOOKING
+import { withBookingDateLock } from "../services/bookingSlotService.mjs";
+// ADMIN AMBIL DATA BOOKING
 export const getAllBookings = async (req, res) => {
     try {
         const { date } = req.query;
@@ -12,29 +11,54 @@ export const getAllBookings = async (req, res) => {
         return res.json(bookings);
     } catch (error) {
         console.error("Error Get All Bookings:", error);
-        return res.status(500).json({ message: "Gagal mengambil seluruh data booking." });
+        return res.status(500).json({ message: "Gagal mengambil seluruh data" });
     }
 };
 
-// 2. [ADMIN] UBAH STATUS BOOKING
+// ADMIN UBAH STATUS BOOKING
 export const updateBookingStatus = async (req, res) => {
     try {
         const { id } = req.params;
         const { status } = req.body;
 
-        if (!status) {
-            return res.status(400).json({ message: "Status wajib disertakan." });
+        if (!["REJECTED", "CANCELLED"].includes(status)) {
+            return res.status(400).json({ message: "Admin hanya dapat menolak atau membatalkan booking." });
         }
 
-        if (status === "BOOKED") {
-            const result = await confirmBookingSlot(db, id);
-            if (result.statusCode !== 200) {
-                return res.status(result.statusCode).json({ message: result.message });
+        const [bookings] = await db.query(
+            `SELECT DATE_FORMAT(booking_date, '%Y-%m-%d') AS booking_date
+             FROM bookings
+             WHERE id = ?`,
+            [id]
+        );
+        if (bookings.length === 0) {
+            return res.status(409).json({ message: "Booking tidak ditemukan atau statusnya tidak dapat diubah." });
+        }
+        const updated = await withBookingDateLock(db, bookings[0].booking_date, async (connection) => {
+            await connection.beginTransaction();
+            try {
+                const [current] = await connection.query(
+                    "SELECT status FROM bookings WHERE id = ? FOR UPDATE",
+                    [id]
+                );
+                if (!current.length || !["PENDING_DP", "BOOKED"].includes(current[0].status)) {
+                    await connection.rollback();
+                    return false;
+                }
+                await connection.query(
+                    "UPDATE bookings SET status = ? WHERE id = ?",
+                    [status, id]
+                );
+                await connection.commit();
+                return true;
+            } catch (error) {
+                await connection.rollback();
+                throw error;
             }
-            return res.json({ message: result.message });
+        });
+        if (!updated) {
+            return res.status(409).json({ message: "Booking tidak ditemukan atau statusnya tidak dapat diubah." });
         }
-
-        await db.query("UPDATE bookings SET status = ? WHERE id = ?", [status, id]);
         return res.json({ message: "Status booking berhasil diperbarui!" });
     } catch (error) {
         console.error("Error Update Booking Status:", error);
@@ -42,7 +66,7 @@ export const updateBookingStatus = async (req, res) => {
     }
 };
 
-// 3. [ADMIN] AMBIL DATA SEMUA PENGGUNA
+// ADMIN AMBIL DATA SEMUA PENGGUNA
 export const getAllUsers = async (req, res) => {
     try {
         const [users] = await db.query(
@@ -55,12 +79,12 @@ export const getAllUsers = async (req, res) => {
     }
 };
 
-// 4. [ADMIN] HAPUS PENGGUNA (BUKAN ADMIN)
+// ADMIN HAPUS PENGGUNA 
 export const deleteUser = async (req, res) => {
     try {
         const { id } = req.params;
 
-        // Cegah admin menghapus akun Administrator
+        // agar akun Administrator tidak terhapus
         const [checkUser] = await db.query("SELECT role FROM users WHERE id = ?", [id]);
         if (checkUser.length > 0 && checkUser[0].role === 'ADMIN') {
             return res.status(403).json({ message: "Tidak dapat menghapus akun Administrator." });

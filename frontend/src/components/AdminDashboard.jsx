@@ -6,7 +6,6 @@ import {
     Users,
     CalendarDays,
     Clock,
-    CheckCircle2,
     XCircle,
     Trash2,
     Search,
@@ -15,6 +14,26 @@ import {
 } from "lucide-react";
 
 const API_URL = "http://localhost:5000/api";
+
+const getAdminRequestError = (error) => {
+    const status = error.response?.status;
+    if (status === 401) {
+        return "Sesi admin tidak valid atau kedaluwarsa. Keluar dari akun, lalu login kembali.";
+    }
+    if (status === 403) {
+        return "Akun ini tidak memiliki izin admin untuk memuat data.";
+    }
+    if (status === 503) {
+        return "Autentikasi backend belum dikonfigurasi. Periksa JWT_SECRET di backend/.env lalu restart backend.";
+    }
+    if (status >= 500) {
+        return error.response?.data?.message || "Backend gagal mengambil data. Periksa log backend dan koneksi database.";
+    }
+    if (!error.response) {
+        return "Backend tidak dapat dihubungi. Pastikan server backend sedang berjalan.";
+    }
+    return error.response?.data?.message || "Permintaan data admin gagal.";
+};
 
 export default function AdminDashboard({ currentUser, onLogoutClick }) {
     const [activeTab, setActiveTab] = useState(() => {
@@ -25,6 +44,8 @@ export default function AdminDashboard({ currentUser, onLogoutClick }) {
     const [scheduleBookings, setScheduleBookings] = useState([]);
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [bookingsError, setBookingsError] = useState("");
+    const [scheduleError, setScheduleError] = useState("");
     const [searchTerm, setSearchTerm] = useState("");
     const [bookingStatusFilter, setBookingStatusFilter] = useState("ALL");
     const [selectedBookingDate, setSelectedBookingDate] = useState(() => {
@@ -43,8 +64,11 @@ export default function AdminDashboard({ currentUser, onLogoutClick }) {
                 params: { date: selectedBookingDate },
             });
             setBookings(res.data);
+            setBookingsError("");
         } catch (error) {
-            toast.error("Gagal memuat data booking.");
+            const message = getAdminRequestError(error);
+            setBookingsError(message);
+            toast.error(message);
         } finally {
             setLoading(false);
         }
@@ -59,8 +83,11 @@ export default function AdminDashboard({ currentUser, onLogoutClick }) {
             setScheduleBookings(
                 res.data.filter((booking) => booking.status === "BOOKED" || booking.status === "BOOKED_PAID")
             );
+            setScheduleError("");
         } catch (error) {
-            toast.error("Gagal memuat jadwal slot.");
+            const message = getAdminRequestError(error);
+            setScheduleError(message);
+            toast.error(message);
         } finally {
             setLoading(false);
         }
@@ -93,8 +120,8 @@ export default function AdminDashboard({ currentUser, onLogoutClick }) {
     const handleUpdateBookingStatus = async (id, newStatus) => {
         const toastId = toast.loading("Memperbarui status...");
         try {
-            await axios.put(`${API_URL}/admin/bookings/${id}`, { status: newStatus });
-            toast.success(`Status berhasil diubah menjadi ${newStatus}`, { id: toastId });
+            const response = await axios.put(`${API_URL}/admin/bookings/${id}`, { status: newStatus });
+            toast.success(response.data.message || `Status berhasil diubah menjadi ${newStatus}`, { id: toastId });
             fetchBookings(); // Muat ulang data
         } catch (error) {
             toast.error("Gagal memperbarui status.", { id: toastId });
@@ -314,7 +341,9 @@ export default function AdminDashboard({ currentUser, onLogoutClick }) {
                                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                                 {filteredBookings.length === 0 ? (
                                     <tr>
-                                        <td colSpan="5" className="px-6 py-8 text-center text-slate-400 font-medium">Tidak ada data booking ditemukan.</td>
+                                        <td colSpan="5" className={`px-6 py-8 text-center font-medium ${bookingsError ? "text-rose-600 dark:text-rose-400" : "text-slate-400"}`}>
+                                            {bookingsError || "Tidak ada data booking ditemukan."}
+                                        </td>
                                     </tr>
                                 ) : (
                                     filteredBookings.map((b, index) => (
@@ -339,16 +368,6 @@ export default function AdminDashboard({ currentUser, onLogoutClick }) {
                           </span>
                                             </td>
                                             <td className="px-6 py-4 flex justify-center items-center space-x-1.5">
-                                                {b.status !== 'BOOKED' && b.status !== 'BOOKED_PAID' && b.status !== 'REJECTED' && b.status !== 'CANCELLED' && (
-                                                    <button onClick={() => handleUpdateBookingStatus(b.id, 'BOOKED')} title="Terima / Konfirmasi DP" className="p-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 dark:bg-emerald-900/40 dark:hover:bg-emerald-900/60 dark:text-emerald-400 rounded-xl transition cursor-pointer">
-                                                        <CheckCircle2 className="w-4 h-4" />
-                                                    </button>
-                                                )}
-                                                {b.status === 'BOOKED' && (
-                                                    <button onClick={() => handleUpdateBookingStatus(b.id, 'BOOKED_PAID')} title="Tandai Sudah Lunas" className="px-2.5 py-1.5 bg-blue-100 hover:bg-blue-200 text-blue-700 dark:bg-blue-900/40 dark:hover:bg-blue-900/60 dark:text-blue-300 rounded-xl transition cursor-pointer text-[10px] font-black uppercase tracking-wider">
-                                                        Set Lunas
-                                                    </button>
-                                                )}
                                                 {b.status !== 'BOOKED_PAID' && b.status !== 'REJECTED' && b.status !== 'CANCELLED' && (
                                                     <button onClick={() => handleUpdateBookingStatus(b.id, 'REJECTED')} title="Tolak / Batal" className="p-2 bg-rose-100 hover:bg-rose-200 text-rose-700 dark:bg-rose-900/40 dark:hover:bg-rose-900/60 dark:text-rose-400 rounded-xl transition cursor-pointer">
                                                         <XCircle className="w-4 h-4" />
@@ -389,7 +408,11 @@ export default function AdminDashboard({ currentUser, onLogoutClick }) {
                                         Refresh Jadwal
                                     </button>
                                 </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-4">
+                                {scheduleError ? (
+                                    <p role="alert" className="p-6 text-center text-sm font-semibold text-rose-600 dark:text-rose-400">
+                                        {scheduleError}
+                                    </p>
+                                ) : <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-4">
                                     {scheduleSlots.map(({ label, hourBookings }) => {
                                         const hasPaidBooking = hourBookings.some((booking) => booking.status === "BOOKED_PAID");
 
@@ -445,7 +468,7 @@ export default function AdminDashboard({ currentUser, onLogoutClick }) {
                                             </section>
                                         );
                                     })}
-                                </div>
+                                </div>}
                             </>
                         )}
 

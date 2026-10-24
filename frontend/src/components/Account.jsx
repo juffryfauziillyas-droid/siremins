@@ -25,7 +25,6 @@ export default function Account({ currentUser, onClose, onUpdateSuccess }) {
 
     try {
       const response = await axios.put(`${API_URL}/auth/update-profile`, {
-        id: currentUser.id,
         name,
         currentPassword,
         newPassword,

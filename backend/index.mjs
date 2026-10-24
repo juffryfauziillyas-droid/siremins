@@ -6,9 +6,11 @@ import authRoutes from "./routes/authRoutes.mjs";
 import bookingRoutes from "./routes/bookingRoutes.mjs";
 import paymentRoutes from "./routes/paymentRoutes.mjs";
 import adminRoutes from "./routes/adminRoutes.mjs";
+import { getJwtSecret } from "./middleware/authMiddleware.mjs";
 import { startAutoCancelScheduler } from "./services/autoCancelService.mjs";
 
 dotenv.config();
+getJwtSecret();
 
 const app = express();
 const PORT = process.env.PORT || 5000;

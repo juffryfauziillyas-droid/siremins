@@ -4,7 +4,9 @@
   "main": "index.mjs",
   "scripts": {
     "start": "node index.mjs",
-    "dev": "nodemon index.mjs"
+    "dev": "nodemon index.mjs",
+    "migrate": "node scripts/migrate.mjs up",
+    "migrate:status": "node scripts/migrate.mjs status"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

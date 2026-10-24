@@ -63,7 +63,7 @@ flowchart LR
 
 ```mermaid
 erDiagram
-    USERS ||--o{ BOOKINGS : "memiliki riwayat berdasarkan nomor HP"
+    USERS ||--o{ BOOKINGS : "memiliki booking"
     USERS {
         int id PK
         string name
@@ -75,8 +75,9 @@ erDiagram
     }
     BOOKINGS {
         int id PK
+        int user_id FK
         string customer_name
-        string phone_number FK
+        string phone_number
         date booking_date
         time start_time
         time end_time
@@ -122,10 +123,14 @@ Langkah awal pembuatan struktur folder proyek:
    ```
 4. Menyiapkan konfigurasi environment `.env` untuk port server dan kredensial database.
    PORT=5000
-   DB_HOST=187.77.125.197
-   DB_USER=admin_siremins
-   DB_PASSWORD=Illyas@1992@
+   DB_HOST=your_database_host
+   DB_USER=your_database_user
+   DB_PASSWORD=your_database_password
    DB_NAME=siremins_db
+   JWT_SECRET=generate_a_random_secret_at_least_32_characters_long
+
+Jangan menaruh nilai kredensial atau token aktif di dokumentasi maupun repositori.
+Gunakan `backend/.env` lokal dan jangan membagikan nilainya melalui chat.
 
 ---
 
@@ -154,16 +159,75 @@ Pengembangan logika backend pada file `backend/db.mjs` dan `backend/index.mjs`:
 
 ### 3.3 Pembuatan Endpoint Transaksi Reservasi
 
-1. `GET /api/bookings?date=YYYY-MM-DD`:
+1. `GET /api/booking-pricing`:
+   - Menyediakan harga paket dan persentase minimum DP dari konfigurasi backend
+     sebagai satu sumber harga untuk tampilan booking.
+   - Backend memakai konfigurasi yang sama untuk validasi booking dan
+     perhitungan nominal token pembayaran.
+2. `GET /api/bookings?date=YYYY-MM-DD`:
    - Mengembalikan daftar jam yang sudah dipesan agar frontend dapat mewarnai slot (merah/kuning).
-2. `POST /api/bookings`:
+3. `POST /api/bookings`:
+   - Memerlukan autentikasi pelanggan; identitas pemesan diambil dari akun
+     terverifikasi, bukan dari data identitas yang dikirim frontend.
+   - Validasi tanggal, format/rentang jam operasional, durasi, serta nominal DP
+     memberikan respons validasi spesifik tanpa memuat detail internal database.
+   - Konflik jadwal dikembalikan sebagai HTTP 409; kegagalan lock atau koneksi
+     database sebagai HTTP 503; kegagalan skema database sebagai HTTP 503.
+     Penyebab teknis dicatat server dengan kategori `conflict`, `lock`,
+     `connection`, `schema`, atau `unexpected`.
    - Memvalidasi tidak adanya jadwal bertabrakan menggunakan query overlap:
      `(start_time < new_end_time AND end_time > new_start_time)`.
-   - Menyimpan jadwal baru dengan status awal _PENDING_.
-3. `GET /api/my-bookings?phone_number=...`:
+   - Menyimpan jadwal baru dengan status awal _PENDING_DP_.
+4. `GET /api/my-bookings`:
+   - Memerlukan autentikasi pelanggan dan hanya mengambil booking yang terkait
+     dengan `user_id` pada token yang telah diverifikasi.
+   - Menyediakan total harga, DP terhitung, dan sisa pelunasan dari backend.
    - Menampilkan seluruh riwayat reservasi pelanggan diurutkan dari tanggal terbaru.
-4. `PUT /api/auth/update-profile`:
+5. `PUT /api/auth/update-profile`:
+   - Memerlukan JWT valid; ID pengguna diambil dari token, bukan request body.
    - Memperbarui nama dan kata sandi akun pelanggan.
+6. Seluruh endpoint `/api/admin/*`:
+   - Memerlukan JWT valid dengan role _ADMIN_ yang diverifikasi terhadap database.
+
+### 3.4 Verifikasi Pembayaran Midtrans Server-to-Server
+
+- Token pembayaran dibuat dengan `order_id` unik yang terhubung ke booking dan
+  nominal pembayaran di tabel `midtrans_payment_transactions`.
+- Midtrans mengirim notifikasi ke `POST /api/payment/notification`. Atur URL
+  notifikasi pada dashboard Midtrans sesuai alamat backend publik, misalnya
+  `https://<domain-backend>/api/payment/notification`.
+- Backend memverifikasi `signature_key` memakai SHA-512 dan
+  `MIDTRANS_SERVER_KEY`, meminta status terkini langsung ke API Midtrans
+  menggunakan `order_id`, lalu mencocokkan order ID dan nominal terverifikasi,
+  tipe pembayaran, serta status transaksi dengan data lokal sebelum mengubah
+  status booking.
+- Hanya transaksi `settlement` atau `capture` dengan `fraud_status: accept`
+  yang dapat mengonfirmasi booking. Callback Snap di browser hanya memberi
+  informasi dan memuat ulang status; callback tersebut tidak menetapkan status
+  pembayaran.
+- Endpoint customer hanya dapat membatalkan booking yang masih `PENDING_DP`
+  atau `BOOKED`; endpoint admin hanya dapat menolak/membatalkan status tersebut.
+  Penjadwalan ulang hanya diperbolehkan untuk `PENDING_DP`, `BOOKED`, dan
+  `BOOKED_PAID`, serta diperiksa ulang di dalam transaksi dan lock tanggal.
+  Status terminal tidak dapat dibuka kembali melalui endpoint tersebut.
+- Jalankan migrasi `backend/migrations/2026-10-24-create-midtrans-payment-transactions.sql`
+  sebelum menerima pembayaran dengan integrasi ini.
+- Jika notifikasi pembayaran sah tiba setelah booking dibatalkan atau jadwal
+  sudah bertabrakan, transaksi dicatat sebagai `PAID_REVIEW` dan dicatat di log
+  backend untuk pemeriksaan/refund manual; status booking tidak dikonfirmasi.
+
+### 3.5 Pencatatan dan Pemeriksaan Migrasi
+
+- Jalankan `npm run migrate:status` dari folder `backend` untuk memeriksa empat
+  migrasi yang diperlukan tanpa mengubah skema.
+- Jalankan `npm run migrate` untuk menerapkan migrasi yang belum ada atau
+  mencatat migrasi lama yang skemanya sudah terpasang. Riwayat dan checksum
+  disimpan di tabel `schema_migrations` pada database yang dikonfigurasi.
+- Runner memeriksa tabel, kolom, dan index yang diperlukan serta menolak
+  checksum migrasi yang berubah setelah dicatat.
+- Jalankan pemeriksaan dan pencatatan secara terpisah untuk setiap database/
+  environment. Jika migrasi DDL terhenti di tengah, tinjau keadaan skema dan
+  error sebelum mencoba kembali.
 
 ---
 
@@ -217,6 +281,12 @@ Pengaturan state sentral di `frontend/src/App.jsx`:
    - Menambahkan efek `document.body.style.overflow = "hidden"` saat ada modal popup yang terbuka agar layar belakang tidak bergeser.
 3. **Pemuatan Real-Time Slot Jadwal:**
    - Setiap kali tanggal pada form booking diubah, Axios memanggil data terbaru dari API backend untuk mencegah double booking.
+4. **Sinkronisasi Harga Booking:**
+   - Form booking mengambil harga paket dan minimum DP dari
+     `GET /api/booking-pricing`; ringkasan tagihan pada riwayat booking berasal
+     dari `GET /api/my-bookings`.
+   - Pembuatan booking hanya dilakukan oleh alur checkout Midtrans di
+     `BookingSection.jsx`; handler booking lama di `App.jsx` telah dihapus.
 
 ---
 

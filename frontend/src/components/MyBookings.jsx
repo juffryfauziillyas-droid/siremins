@@ -28,9 +28,7 @@ export default function MyBookingsModal({ currentUser, onClose }) {
         setError("");
 
         try {
-            const res = await axios.get(
-                `${API_URL}/my-bookings?phone_number=${currentUser.phone_number}`
-            );
+            const res = await axios.get(`${API_URL}/my-bookings`);
 
             const normalizedBookings = res.data.map((booking) => ({
                 ...booking,
@@ -158,40 +156,23 @@ export default function MyBookingsModal({ currentUser, onClose }) {
     const handleContinuePayment = async (booking) => {
         const toastId = toast.loading("Mempersiapkan pembayaran...");
         try {
-            const startH = parseInt(booking.start_time.split(":")[0], 10);
-            let endH = parseInt(booking.end_time.split(":")[0], 10);
-            if (endH === 0) endH = 24;
-            const duration = endH - startH;
-
-            const paketHarga = { 1: 200000, 2: 375000, 3: 550000 };
-            const totalPrice = paketHarga[duration] || (duration * 200000);
-            const dpAmount = Number(booking.dp_amount) || totalPrice * 0.25;
-
             const resToken = await axios.post(`${API_URL}/payment/token`, {
-                customer_name: booking.customer_name,
-                phone_number: booking.phone_number,
-                dp_amount: dpAmount,
                 booking_id: booking.id
             });
 
             toast.dismiss(toastId);
-            let paymentSucceeded = false;
+            let paymentAccepted = false;
             window.snap.pay(resToken.data.token, {
                 onSuccess: async function () {
-                    paymentSucceeded = true;
-                    try {
-                        await axios.put(`${API_URL}/bookings/${booking.id}/status`, { status: "BOOKED" });
-                        toast.success("Pembayaran berhasil! Status diperbarui.");
-                    } catch (err) {
-                        toast.error(err.response?.data?.message || "Pembayaran diterima, tetapi jadwal gagal dikonfirmasi. Hubungi admin.");
-                    } finally {
-                        fetchMyBookings();
-                    }
+                    paymentAccepted = true;
+                    toast.success("Pembayaran diterima Midtrans. Menunggu verifikasi server.");
+                    fetchMyBookings();
+                    window.setTimeout(fetchMyBookings, 2500);
                 },
                 onPending: function () { toast.info("Menunggu pembayaran diselesaikan."); },
                 onError: function () { toast.error("Pembayaran gagal."); },
                 onClose: function () {
-                    if (!paymentSucceeded) toast("Jendela pembayaran ditutup.");
+                    if (!paymentAccepted) toast("Jendela pembayaran ditutup.");
                 }
             });
         } catch (err) {
@@ -201,23 +182,17 @@ export default function MyBookingsModal({ currentUser, onClose }) {
 
     const handleExecutePelunasan = async () => {
         if (!pelunasanData) return;
+        if (
+            !Number.isInteger(Number(pelunasanData.remaining_balance))
+            || Number(pelunasanData.remaining_balance) <= 0
+        ) {
+            toast.error("Rincian pelunasan booking tidak tersedia atau sudah lunas.");
+            return;
+        }
         const toastId = toast.loading("Menghubungkan ke sistem pembayaran...");
 
         try {
-            const startH = parseInt(pelunasanData.start_time.split(":")[0], 10);
-            let endH = parseInt(pelunasanData.end_time.split(":")[0], 10);
-            if (endH === 0) endH = 24;
-            const duration = endH - startH;
-
-            const paketHarga = { 1: 200000, 2: 375000, 3: 550000 };
-            const totalPrice = paketHarga[duration] || (duration * 200000);
-            const dpAmount = Number(pelunasanData.dp_amount) || totalPrice * 0.25;
-            const sisaPelunasan = totalPrice - dpAmount;
-
             const resToken = await axios.post(`${API_URL}/payment/token`, {
-                customer_name: pelunasanData.customer_name,
-                phone_number: pelunasanData.phone_number,
-                dp_amount: sisaPelunasan,
                 booking_id: `LUNAS-${pelunasanData.id}`
             });
 
@@ -226,10 +201,9 @@ export default function MyBookingsModal({ currentUser, onClose }) {
 
             window.snap.pay(resToken.data.token, {
                 onSuccess: async function () {
-                    // Update status menjadi BOOKED_PAID setelah lunas
-                    await axios.put(`${API_URL}/bookings/${pelunasanData.id}/status`, { status: "BOOKED_PAID" });
-                    toast.success("Pelunasan berhasil! Jadwal telah lunas.");
+                    toast.success("Pembayaran diterima Midtrans. Menunggu verifikasi server.");
                     fetchMyBookings();
+                    window.setTimeout(fetchMyBookings, 2500);
                 },
                 onPending: function () { toast.info("Menunggu pelunasan diselesaikan."); },
                 onError: function () { toast.error("Pelunasan gagal diproses."); },
@@ -279,14 +253,26 @@ export default function MyBookingsModal({ currentUser, onClose }) {
                     <X className="w-5 h-5" />
                 </button>
 
-                <div className="flex items-center space-x-3 mb-6">
-                    <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                        <Ticket className="w-6 h-6" />
+                <div className="flex items-center justify-between gap-3 mb-6 pr-12">
+                    <div className="flex items-center space-x-3">
+                        <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                            <Ticket className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Riwayat Booking</h2>
+                            <p className="text-slate-500 dark:text-slate-400 text-xs font-medium">Kelola jadwal lapangan yang telah Anda pesan</p>
+                        </div>
                     </div>
-                    <div>
-                        <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Riwayat Booking</h2>
-                        <p className="text-slate-500 dark:text-slate-400 text-xs font-medium">Kelola jadwal lapangan yang telah Anda pesan</p>
-                    </div>
+                    <button
+                        type="button"
+                        onClick={fetchMyBookings}
+                        disabled={loading}
+                        title="Refresh daftar booking"
+                        className="inline-flex items-center gap-2 rounded-xl border border-blue-500/20 bg-blue-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-blue-600 transition-colors hover:bg-blue-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50 dark:text-blue-400 dark:hover:text-white"
+                    >
+                        <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                        <span className="hidden sm:inline">Refresh</span>
+                    </button>
                 </div>
 
                 <div className="min-h-[250px] max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
@@ -384,36 +370,41 @@ export default function MyBookingsModal({ currentUser, onClose }) {
                             </h3>
 
                             {(() => {
-                                const startH = parseInt(pelunasanData.start_time.split(":")[0], 10);
-                                let endH = parseInt(pelunasanData.end_time.split(":")[0], 10);
-                                if (endH === 0) endH = 24;
-                                const duration = endH - startH;
-
-                                const paketHarga = { 1: 200000, 2: 375000, 3: 550000 };
-                                const totalPrice = paketHarga[duration] || (duration * 200000);
-                                const dpAmount = Number(pelunasanData.dp_amount) || totalPrice * 0.25;
-                                const sisaPelunasan = totalPrice - dpAmount;
+                                const totalPrice = Number(pelunasanData.total_price);
+                                const dpAmount = Number(pelunasanData.dp_paid_amount);
+                                const sisaPelunasan = Number(pelunasanData.remaining_balance);
+                                const hasPricing = pelunasanData.total_price !== null
+                                    && pelunasanData.dp_paid_amount !== null
+                                    && pelunasanData.remaining_balance !== null
+                                    && Number.isInteger(totalPrice)
+                                    && Number.isInteger(dpAmount)
+                                    && Number.isInteger(sisaPelunasan);
+                                const startHour = Number(pelunasanData.start_time.split(":")[0]);
+                                const endHourValue = Number(pelunasanData.end_time.split(":")[0]);
+                                const endHour = endHourValue === 0 ? 24 : endHourValue;
+                                const duration = endHour - startHour;
 
                                 return (
                                     <div className="space-y-3 text-xs text-slate-600 dark:text-slate-300 font-medium">
+                                        {!hasPricing && <p className="text-rose-600 dark:text-rose-400">Rincian harga tidak tersedia.</p>}
                                         <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
                                             <span>Tarif Sewa ({duration} Jam)</span>
-                                            <strong className="text-slate-900 dark:text-white">Rp {totalPrice.toLocaleString("id-ID")}</strong>
+                                            <strong className="text-slate-900 dark:text-white">{hasPricing ? `Rp ${totalPrice.toLocaleString("id-ID")}` : "-"}</strong>
                                         </div>
                                         <div className="flex justify-between border-b border-slate-100 dark:border-slate-800 pb-2 text-emerald-600 dark:text-emerald-400">
-                                            <span>DP Dibayarkan (25%)</span>
-                                            <strong>- Rp {dpAmount.toLocaleString("id-ID")}</strong>
+                                            <span>DP Dibayarkan</span>
+                                            <strong>{hasPricing ? `- Rp ${dpAmount.toLocaleString("id-ID")}` : "-"}</strong>
                                         </div>
                                         <div className="flex justify-between pt-2">
                                             <span className="font-bold uppercase tracking-wider">Sisa Pelunasan</span>
-                                            <strong className="text-lg font-black text-rose-500">Rp {sisaPelunasan.toLocaleString("id-ID")}</strong>
+                                            <strong className="text-lg font-black text-rose-500">{hasPricing ? `Rp ${sisaPelunasan.toLocaleString("id-ID")}` : "-"}</strong>
                                         </div>
 
                                         <div className="pt-5 flex space-x-2">
                                             <button onClick={() => setPelunasanData(null)} className="flex-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-bold py-3 rounded-xl text-[10px] uppercase tracking-wider transition-colors cursor-pointer">
                                                 Batal
                                             </button>
-                                            <button onClick={handleExecutePelunasan} className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black py-3 rounded-xl text-[10px] uppercase tracking-wider transition-colors cursor-pointer flex items-center justify-center">
+                                            <button onClick={handleExecutePelunasan} disabled={!hasPricing || sisaPelunasan <= 0} className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black py-3 rounded-xl text-[10px] uppercase tracking-wider transition-colors cursor-pointer flex items-center justify-center disabled:cursor-not-allowed disabled:opacity-50">
                                                 <CreditCard className="w-3 h-3 mr-1" /> Bayar (Midtrans)
                                             </button>
                                         </div>

@@ -1,5 +1,117 @@
 import db from "../db.mjs";
-import { confirmBookingSlot, withBookingDateLock } from "../services/bookingSlotService.mjs";
+import {
+    BookingDateLockError,
+    withBookingDateLock,
+} from "../services/bookingSlotService.mjs";
+import {
+    BOOKING_PACKAGE_PRICES,
+    getBookingPaymentSummary,
+    MINIMUM_DP_RATE,
+} from "../services/bookingPricing.mjs";
+
+const databaseSchemaErrorCodes = new Set([
+    "ER_BAD_FIELD_ERROR",
+    "ER_NO_SUCH_TABLE",
+    "ER_BAD_DB_ERROR",
+    "ER_TABLE_EXISTS_ERROR",
+    "ER_DUP_FIELDNAME",
+    "ER_CANT_DROP_FIELD_OR_KEY",
+    "ER_DUP_KEYNAME",
+]);
+const databaseConnectionErrorCodes = new Set([
+    "ECONNREFUSED",
+    "ECONNRESET",
+    "ETIMEDOUT",
+    "ENOTFOUND",
+    "EHOSTUNREACH",
+    "PROTOCOL_CONNECTION_LOST",
+    "PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR",
+    "ER_CON_COUNT_ERROR",
+    "ER_SERVER_SHUTDOWN",
+    "ER_CONNECTION_KILLED",
+    "ER_ACCESS_DENIED_ERROR",
+    "ER_DBACCESS_DENIED_ERROR",
+]);
+const databaseLockErrorCodes = new Set(["ER_LOCK_WAIT_TIMEOUT", "ER_LOCK_DEADLOCK"]);
+
+const getBookingFailure = (error) => {
+    if (error instanceof BookingDateLockError) {
+        return {
+            category: "lock",
+            statusCode: 503,
+            message: "Jadwal sedang diproses oleh pengguna lain. Silakan coba kembali.",
+        };
+    }
+    if (databaseLockErrorCodes.has(error?.code)) {
+        return {
+            category: "lock",
+            statusCode: 503,
+            message: "Jadwal sedang diproses oleh pengguna lain. Silakan coba kembali.",
+        };
+    }
+    if (databaseSchemaErrorCodes.has(error?.code)) {
+        return {
+            category: "schema",
+            statusCode: 503,
+            message: "Layanan booking belum siap. Silakan hubungi administrator.",
+        };
+    }
+    if (databaseConnectionErrorCodes.has(error?.code)) {
+        return {
+            category: "connection",
+            statusCode: 503,
+            message: "Database booking sedang tidak dapat dihubungi. Silakan coba kembali.",
+        };
+    }
+    return {
+        category: "unexpected",
+        statusCode: 500,
+        message: "Booking gagal diproses karena terjadi gangguan pada server.",
+    };
+};
+
+const logBookingFailure = (error, category) => {
+    console.error("Booking gagal dibuat:", {
+        category,
+        code: error?.code || "UNKNOWN",
+        errno: error?.errno,
+        sqlState: error?.sqlState,
+        message: error instanceof Error ? error.message : String(error),
+    });
+};
+
+const rejectInvalidBooking = (res, reason, message) => {
+    console.warn("Booking ditolak karena validasi:", {
+        category: "validation",
+        reason,
+    });
+    return res.status(400).json({ message });
+};
+
+const isValidDate = (value) => {
+    if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const [year, month, day] = value.split("-").map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day));
+    return date.getUTCFullYear() === year
+        && date.getUTCMonth() === month - 1
+        && date.getUTCDate() === day;
+};
+
+const getTimeMinutes = (value, allowEndOfDay = false) => {
+    if (typeof value !== "string" || !/^\d{2}:\d{2}(?::\d{2})?$/.test(value)) return null;
+    const [hours, minutes, seconds = "00"] = value.split(":").map(Number);
+    if (seconds !== 0 || minutes !== 0) return null;
+    if (allowEndOfDay && hours === 24) return 24 * 60;
+    if (hours < 0 || hours > 23) return null;
+    return hours * 60 + minutes;
+};
+
+export const getBookingPricing = (_req, res) => {
+    return res.json({
+        packages: BOOKING_PACKAGE_PRICES,
+        minimumDpRate: MINIMUM_DP_RATE,
+    });
+};
 
 // 1. MENGAMBIL JADWAL BOOKING BERDASARKAN TANGGAL
 export const getBookingsByDate = async (req, res) => {
@@ -34,39 +146,69 @@ export const getBookingsByDate = async (req, res) => {
 // 2. BUAT BOOKING BARU (DENGAN PENGECEKAN OVERLAP / BENTROK JAM)
 export const createBooking = async (req, res) => {
     try {
-        const { customer_name, phone_number, booking_date, start_time, end_time, dp_amount } = req.body;
+        const body = req.body && typeof req.body === "object" ? req.body : {};
+        const { booking_date, start_time, end_time, dp_amount } = body;
 
-        if (!customer_name || !phone_number || !booking_date || !start_time || !end_time) {
-            return res.status(400).json({ message: "Semua data booking wajib diisi." });
+        if (!isValidDate(booking_date)) {
+            return rejectInvalidBooking(res, "invalid_date", "Tanggal booking tidak valid.");
         }
 
-        // Normalisasi end_time jika tengah malam (24:00 atau 00:00)
-        let normalizedEndTime = end_time;
-        if (normalizedEndTime === "00:00" || normalizedEndTime === "00:00:00") {
-            normalizedEndTime = "24:00:00";
-        }
-        let normalizedStartTime = start_time;
-
-        // Validasi jam: pastikan start_time lebih awal dari end_time
-        if (normalizedStartTime >= normalizedEndTime) {
-            return res.status(400).json({ message: "Jam mulai harus lebih awal dari jam selesai." });
+        if (
+            typeof start_time !== "string"
+            || typeof end_time !== "string"
+            || start_time.trim() === ""
+            || end_time.trim() === ""
+        ) {
+            return rejectInvalidBooking(res, "missing_time", "Jam mulai dan jam selesai wajib diisi.");
         }
 
-        const startHour = Number(normalizedStartTime.split(":")[0]);
-        let endHour = Number(normalizedEndTime.split(":")[0]);
-        if (endHour === 0) endHour = 24;
-        const duration = endHour - startHour;
-        const packagePrices = { 1: 200000, 2: 375000, 3: 550000 };
-        const totalPrice = packagePrices[duration];
+        const startMinutes = getTimeMinutes(start_time);
+        const endMinutes = end_time === "00:00" || end_time === "00:00:00"
+            ? 24 * 60
+            : getTimeMinutes(end_time, true);
+        if (
+            startMinutes === null
+            || endMinutes === null
+            || startMinutes < 8 * 60
+            || startMinutes >= 24 * 60
+            || endMinutes <= startMinutes
+            || endMinutes > 24 * 60
+        ) {
+            return rejectInvalidBooking(res, "invalid_time_range", "Rentang jam booking tidak valid.");
+        }
+
+        const normalizedStartTime = `${String(Math.floor(startMinutes / 60)).padStart(2, "0")}:00:00`;
+        const normalizedEndTime = `${String(Math.floor(endMinutes / 60)).padStart(2, "0")}:00:00`;
+        const duration = (endMinutes - startMinutes) / 60;
+        if (!Number.isInteger(duration)) {
+            return rejectInvalidBooking(
+                res,
+                "non_hour_duration",
+                "Jam booking harus menggunakan kelipatan satu jam."
+            );
+        }
+
+        const totalPrice = BOOKING_PACKAGE_PRICES[duration];
+        if (!totalPrice) {
+            return rejectInvalidBooking(
+                res,
+                "unsupported_duration",
+                "Durasi booking hanya dapat dipilih 1 sampai 3 jam."
+            );
+        }
+
         const parsedDpAmount = Number(dp_amount);
 
         if (
-            !totalPrice ||
             !Number.isInteger(parsedDpAmount) ||
-            parsedDpAmount < totalPrice * 0.25 ||
+            parsedDpAmount < totalPrice * MINIMUM_DP_RATE ||
             parsedDpAmount > totalPrice
         ) {
-            return res.status(400).json({ message: "Nominal DP tidak valid untuk durasi booking." });
+            return rejectInvalidBooking(
+                res,
+                "invalid_dp_amount",
+                "Nominal DP tidak valid untuk durasi booking."
+            );
         }
 
         const bookingResult = await withBookingDateLock(db, booking_date, async (connection) => {
@@ -84,14 +226,20 @@ export const createBooking = async (req, res) => {
             if (existing.length > 0) return null;
 
             const [result] = await connection.query(
-                "INSERT INTO bookings (customer_name, phone_number, booking_date, start_time, end_time, dp_amount, status) VALUES (?, ?, ?, ?, ?, ?, 'PENDING_DP')",
-                [customer_name, phone_number, booking_date, normalizedStartTime, normalizedEndTime, parsedDpAmount]
+                "INSERT INTO bookings (user_id, customer_name, phone_number, booking_date, start_time, end_time, dp_amount, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING_DP')",
+                [req.user.id, req.user.name, req.user.phone_number, booking_date, normalizedStartTime, normalizedEndTime, parsedDpAmount]
             );
 
             return result.insertId;
         });
 
         if (bookingResult === null) {
+            console.warn("Booking ditolak karena konflik jadwal:", {
+                category: "conflict",
+                bookingDate: booking_date,
+                startTime: normalizedStartTime,
+                endTime: normalizedEndTime,
+            });
             return res.status(409).json({
                 message: "Slot jam tersebut sudah dipesan oleh orang lain. Silakan pilih jam yang masih kosong."
             });
@@ -102,30 +250,28 @@ export const createBooking = async (req, res) => {
             bookingId: bookingResult
         });
     } catch (error) {
-        console.error("Error Create Booking:", error);
-        return res.status(500).json({ message: "Gagal mengunci jadwal lapangan." });
+        const failure = getBookingFailure(error);
+        logBookingFailure(error, failure.category);
+        return res.status(failure.statusCode).json({ message: failure.message });
     }
 };
 
 // 3. AMBIL RIWAYAT BOOKING PENGUNJUNG
 export const getMyBookings = async (req, res) => {
     try {
-        const { phone_number } = req.query;
-
-        if (!phone_number) {
-            return res.status(400).json({ message: "Nomor HP wajib disertakan." });
-        }
-
         const [bookings] = await db.query(
             `SELECT bookings.*,
                     DATE_FORMAT(booking_date, '%Y-%m-%d') AS booking_date_local
              FROM bookings
-             WHERE phone_number = ?
+             WHERE user_id = ?
              ORDER BY booking_date ASC, start_time ASC`,
-            [phone_number]
+            [req.user.id]
         );
 
-        return res.json(bookings);
+        return res.json(bookings.map((booking) => ({
+            ...booking,
+            ...getBookingPaymentSummary(booking),
+        })));
     } catch (error) {
         console.error("Error Get My Bookings:", error);
         return res.status(500).json({ message: "Gagal mengambil data bookingan." });
@@ -142,15 +288,46 @@ export const updateBookingStatus = async (req, res) => {
             return res.status(400).json({ message: "Status wajib disertakan." });
         }
 
-        if (status === "BOOKED") {
-            const result = await confirmBookingSlot(db, id);
-            if (result.statusCode !== 200) {
-                return res.status(result.statusCode).json({ message: result.message });
-            }
-            return res.json({ message: result.message });
+        if (status !== "CANCELLED") {
+            return res.status(403).json({ message: "Status pembayaran hanya dapat diperbarui setelah diverifikasi server." });
         }
 
-        await db.query("UPDATE bookings SET status = ? WHERE id = ?", [status, id]);
+        const [bookings] = await db.query(
+            `SELECT id, status, DATE_FORMAT(booking_date, '%Y-%m-%d') AS booking_date
+             FROM bookings
+             WHERE id = ? AND user_id = ?`,
+            [id, req.user.id]
+        );
+        if (bookings.length === 0) {
+            return res.status(404).json({ message: "Data booking tidak ditemukan." });
+        }
+
+        const updated = await withBookingDateLock(db, bookings[0].booking_date, async (connection) => {
+            await connection.beginTransaction();
+            try {
+                const [current] = await connection.query(
+                    "SELECT status FROM bookings WHERE id = ? AND user_id = ? FOR UPDATE",
+                    [id, req.user.id]
+                );
+                if (!current.length || !["PENDING_DP", "BOOKED"].includes(current[0].status)) {
+                    await connection.rollback();
+                    return false;
+                }
+
+                await connection.query(
+                    "UPDATE bookings SET status = 'CANCELLED' WHERE id = ? AND user_id = ?",
+                    [id, req.user.id]
+                );
+                await connection.commit();
+                return true;
+            } catch (error) {
+                await connection.rollback();
+                throw error;
+            }
+        });
+        if (!updated) {
+            return res.status(409).json({ message: "Status booking tidak dapat diubah dengan cara tersebut." });
+        }
         return res.json({ message: `Status pemesanan berhasil diubah menjadi ${status}` });
     } catch (error) {
         console.error("Error Update Status:", error);
@@ -170,8 +347,10 @@ export const rescheduleBooking = async (req, res) => {
 
         // Ambil data booking yang ingin dipindahkan
         const [current] = await db.query(
-            "SELECT id, DATE_FORMAT(booking_date, '%Y-%m-%d') AS booking_date FROM bookings WHERE id = ?",
-            [id]
+            `SELECT id, DATE_FORMAT(booking_date, '%Y-%m-%d') AS booking_date
+             FROM bookings
+            WHERE id = ? AND user_id = ?`,
+            [id, req.user.id]
         );
         if (current.length === 0) {
             return res.status(404).json({ message: "Data booking tidak ditemukan." });
@@ -191,30 +370,71 @@ export const rescheduleBooking = async (req, res) => {
             return res.status(400).json({ message: "Jam mulai harus lebih awal dari jam selesai." });
         }
 
-        const rescheduled = await withBookingDateLock(db, bookingDate, async (connection) => {
-            const [conflicts] = await connection.query(
-                `SELECT id
-                 FROM bookings
-                 WHERE booking_date = ?
-                   AND id != ?
-                   AND status IN ('BOOKED', 'BOOKED_PAID')
-                   AND start_time < ?
-                   AND end_time > ?
-                 LIMIT 1`,
-                [bookingDate, id, normalizedEndTime, normalizedStartTime]
-            );
+        const rescheduleResult = await withBookingDateLock(db, bookingDate, async (connection) => {
+            await connection.beginTransaction();
+            try {
+                const [lockedBookings] = await connection.query(
+                    `SELECT status, start_time, end_time
+                     FROM bookings
+                     WHERE id = ? AND user_id = ?
+                     FOR UPDATE`,
+                    [id, req.user.id]
+                );
+                const lockedBooking = lockedBookings[0];
+                if (!lockedBooking) {
+                    await connection.rollback();
+                    return "not_found";
+                }
 
-            if (conflicts.length > 0) return false;
+                if (!["PENDING_DP", "BOOKED", "BOOKED_PAID"].includes(lockedBooking.status)) {
+                    await connection.rollback();
+                    return "invalid_status";
+                }
 
-            await connection.query(
-                "UPDATE bookings SET start_time = ?, end_time = ? WHERE id = ?",
-                [normalizedStartTime, normalizedEndTime, id]
-            );
+                const [conflicts] = await connection.query(
+                    `SELECT id
+                     FROM bookings
+                     WHERE booking_date = ?
+                       AND id != ?
+                       AND status IN ('BOOKED', 'BOOKED_PAID')
+                       AND start_time < ?
+                       AND end_time > ?
+                     LIMIT 1`,
+                    [bookingDate, id, normalizedEndTime, normalizedStartTime]
+                );
 
-            return true;
+                if (conflicts.length > 0) {
+                    await connection.rollback();
+                    return "conflict";
+                }
+
+                await connection.query(
+                    `UPDATE bookings
+                     SET start_time = ?, end_time = ?
+                     WHERE id = ? AND user_id = ? AND status = ?`,
+                    [
+                        normalizedStartTime,
+                        normalizedEndTime,
+                        id,
+                        req.user.id,
+                        lockedBooking.status,
+                    ]
+                );
+                await connection.commit();
+                return "updated";
+            } catch (error) {
+                await connection.rollback();
+                throw error;
+            }
         });
 
-        if (!rescheduled) {
+        if (rescheduleResult === "not_found") {
+            return res.status(404).json({ message: "Data booking tidak ditemukan." });
+        }
+        if (rescheduleResult === "invalid_status") {
+            return res.status(409).json({ message: "Booking dengan status ini tidak dapat dijadwalkan ulang." });
+        }
+        if (rescheduleResult === "conflict") {
             return res.status(409).json({
                 message: "Jadwal pengganti yang dipilih bertabrakan dengan pesanan lain. Silakan pilih jam lain."
             });

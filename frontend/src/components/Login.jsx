@@ -51,6 +51,8 @@ export default function Login({ onClose, onLoginSuccess }) {
       toast.success(res.data.message || "Login berhasil!", { id: toastId });
 
       if (res.data.token) {
+        localStorage.removeItem("adminToken");
+        localStorage.removeItem("adminData");
         localStorage.setItem("userToken", res.data.token);
         localStorage.setItem("userData", JSON.stringify(res.data.user));
       }
@@ -173,6 +175,8 @@ export default function Login({ onClose, onLoginSuccess }) {
       });
 
       if (res.data.token) {
+        localStorage.removeItem("userToken");
+        localStorage.removeItem("userData");
         localStorage.setItem("adminToken", res.data.token);
         localStorage.setItem("adminData", JSON.stringify(res.data.admin));
       }
