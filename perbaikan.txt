@@ -13,8 +13,14 @@ PRIORITAS KRITIS - KEAMANAN
      backend/routes/authRoutes.mjs, backend/routes/bookingRoutes.mjs.
 
 2. Amankan proses reset password.
-   - Saat ini reset password hanya meminta nomor HP dan password baru.
-   - Tambahkan verifikasi kepemilikan akun, misalnya OTP, serta rate limiting.
+   - Implementasi OTP WhatsApp via Fonnte sudah ditambahkan: OTP berlaku 5 menit,
+     dibatasi satu permintaan per menit, maksimum lima percobaan, hash OTP
+     disimpan di database, dan password diubah setelah OTP valid.
+   - Tindak lanjut operasional: jalankan migrasi
+     backend/migrations/2026-10-24-create-password-reset-otps.sql dan atur
+     FONNTE_TOKEN serta OTP_HASH_SECRET di backend/.env.
+   - Uji pengiriman WhatsApp, OTP salah/kedaluwarsa/terpakai, cooldown, dan
+     verifikasi bahwa akun yang nomor HP-nya tidak terdaftar tidak menerima OTP.
    - Referensi: backend/controllers/authController.mjs.
 
 3. Verifikasi pembayaran di server menggunakan notifikasi/webhook Midtrans.

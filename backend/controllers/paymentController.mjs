@@ -1,11 +1,6 @@
 import midtransClient from "midtrans-client";
 import db from "../db.mjs";
 
-const snap = new midtransClient.Snap({
-    isProduction: false,
-    serverKey: process.env.MIDTRANS_SERVER_KEY || "SB-Mid-server-DgcmO8VcbaYbbpIzzhmORL5X"
-});
-
 // GENERATE TOKEN PEMBAYARAN MIDTRANS
 export const createPaymentToken = async (req, res) => {
     try {
@@ -13,6 +8,12 @@ export const createPaymentToken = async (req, res) => {
 
         if (!customer_name || !phone_number || !dp_amount || !booking_id) {
             return res.status(400).json({ message: "Parameter pembayaran tidak lengkap." });
+        }
+
+        const serverKey = process.env.MIDTRANS_SERVER_KEY;
+        if (!serverKey) {
+            console.error("MIDTRANS_SERVER_KEY belum dikonfigurasi.");
+            return res.status(503).json({ message: "Layanan pembayaran belum dikonfigurasi." });
         }
 
         let paymentAmount = Number(dp_amount);
@@ -65,6 +66,10 @@ export const createPaymentToken = async (req, res) => {
             }
         };
 
+        const snap = new midtransClient.Snap({
+            isProduction: process.env.MIDTRANS_IS_PRODUCTION === "true",
+            serverKey,
+        });
         const transaction = await snap.createTransaction(parameter);
         return res.json({ token: transaction.token });
     } catch (error) {

@@ -31,6 +31,7 @@ export default function Login({ onClose, onLoginSuccess }) {
   });
   const [forgotForm, setForgotForm] = useState({
     phone_number: "",
+    otp: "",
     newPassword: "",
     confirmNewPassword: "",
   });
@@ -38,6 +39,7 @@ export default function Login({ onClose, onLoginSuccess }) {
 
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
 
   const handleUserLogin = async (e) => {
     e.preventDefault();
@@ -100,6 +102,10 @@ export default function Login({ onClose, onLoginSuccess }) {
 
   const handleUserResetPassword = async (e) => {
     e.preventDefault();
+    if (!/^\d{6}$/.test(forgotForm.otp)) {
+      toast.error("Masukkan OTP 6 digit yang dikirim melalui WhatsApp.");
+      return;
+    }
     if (forgotForm.newPassword !== forgotForm.confirmNewPassword) {
       toast.error("Konfirmasi kata sandi baru tidak cocok.");
       return;
@@ -110,6 +116,7 @@ export default function Login({ onClose, onLoginSuccess }) {
     try {
       const res = await axios.post(`${API_URL}/auth/reset-password`, {
         phone_number: forgotForm.phone_number,
+        otp: forgotForm.otp,
         newPassword: forgotForm.newPassword,
       });
 
@@ -117,12 +124,37 @@ export default function Login({ onClose, onLoginSuccess }) {
         id: toastId,
       });
       setTimeout(() => {
+        setOtpSent(false);
         setUserView("login");
         setUserForm({ phone_number: forgotForm.phone_number, password: "" });
       }, 1000);
     } catch (err) {
       const errorMsg =
         err.response?.data?.message || "Gagal memperbarui kata sandi.";
+      toast.error(errorMsg, { id: toastId });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRequestPasswordResetOtp = async () => {
+    if (!forgotForm.phone_number.trim()) {
+      toast.error("Masukkan nomor HP terdaftar terlebih dahulu.");
+      return;
+    }
+
+    setLoading(true);
+    const toastId = toast.loading("Mengirim OTP melalui WhatsApp...");
+    try {
+      const res = await axios.post(`${API_URL}/auth/request-password-reset-otp`, {
+        phone_number: forgotForm.phone_number,
+      });
+      setOtpSent(true);
+      toast.success(res.data.message || "Jika nomor terdaftar, OTP akan dikirim melalui WhatsApp.", {
+        id: toastId,
+      });
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || "Gagal mengirim OTP. Silakan coba lagi.";
       toast.error(errorMsg, { id: toastId });
     } finally {
       setLoading(false);
@@ -265,7 +297,15 @@ export default function Login({ onClose, onLoginSuccess }) {
                     </label>
                     <button
                       type="button"
-                      onClick={() => setUserView("forgot")}
+                      onClick={() => {
+                        setForgotForm((previous) => ({
+                          ...previous,
+                          phone_number: userForm.phone_number,
+                          otp: "",
+                        }));
+                        setOtpSent(false);
+                        setUserView("forgot");
+                      }}
                       className="text-[10px] font-bold text-blue-600 dark:text-emerald-400 hover:underline cursor-pointer"
                     >
                       Lupa Kata Sandi?
@@ -415,15 +455,46 @@ export default function Login({ onClose, onLoginSuccess }) {
                       required
                       placeholder="Contoh: 081234567890"
                       value={forgotForm.phone_number}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        setOtpSent(false);
                         setForgotForm({
                           ...forgotForm,
                           phone_number: e.target.value,
-                        })
-                      }
+                          otp: "",
+                        });
+                      }}
                       className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-blue-500 text-xs font-medium"
                     />
                   </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRequestPasswordResetOtp}
+                  disabled={loading}
+                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-2.5 px-4 rounded-xl transition duration-200 text-xs uppercase tracking-widest disabled:opacity-60 cursor-pointer"
+                >
+                  {loading ? "Mengirim OTP..." : otpSent ? "Kirim Ulang OTP WhatsApp" : "Kirim OTP WhatsApp"}
+                </button>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                    Kode OTP WhatsApp
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    required
+                    placeholder="Masukkan 6 digit OTP"
+                    value={forgotForm.otp}
+                    onChange={(e) =>
+                      setForgotForm({
+                        ...forgotForm,
+                        otp: e.target.value.replace(/\D/g, "").slice(0, 6),
+                      })
+                    }
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-blue-500 text-xs font-bold tracking-[0.3em]"
+                  />
                 </div>
                 <div>
                   <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
@@ -434,6 +505,8 @@ export default function Login({ onClose, onLoginSuccess }) {
                     <input
                       type={showPassword ? "text" : "password"}
                       required
+                      minLength={6}
+                      maxLength={128}
                       placeholder="Min. 6 karakter"
                       value={forgotForm.newPassword}
                       onChange={(e) =>
@@ -455,6 +528,8 @@ export default function Login({ onClose, onLoginSuccess }) {
                     <input
                       type={showPassword ? "text" : "password"}
                       required
+                      minLength={6}
+                      maxLength={128}
                       placeholder="Ulangi sandi baru"
                       value={forgotForm.confirmNewPassword}
                       onChange={(e) =>
@@ -469,7 +544,7 @@ export default function Login({ onClose, onLoginSuccess }) {
                 </div>
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || !otpSent}
                   className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-3 px-4 rounded-xl shadow-md transition duration-200 text-xs uppercase tracking-widest disabled:opacity-60 cursor-pointer mt-2"
                 >
                   {loading ? "Mereset..." : "Reset Kata Sandi"}
