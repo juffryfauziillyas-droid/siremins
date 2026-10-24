@@ -198,20 +198,30 @@ export default function AdminDashboard({ currentUser, onLogoutClick }) {
                                             </td>
                                             <td className="px-6 py-4">
                           <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${
-                              b.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800' :
+                              b.status === 'BOOKED_PAID' ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800' :
+                              b.status === 'BOOKED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800' :
                                   b.status === 'REJECTED' || b.status === 'CANCELLED' ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800' :
                                       'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800'
                           }`}>
-                            {b.status || 'PENDING'}
+                            {b.status === 'BOOKED_PAID' ? 'LUNAS (PAID)' : b.status === 'BOOKED' ? 'DP DITERIMA' : b.status ? b.status.replace('_', ' ') : 'PENDING'}
                           </span>
                                             </td>
-                                            <td className="px-6 py-4 flex justify-center space-x-2">
-                                                <button onClick={() => handleUpdateBookingStatus(b.id, 'APPROVED')} title="Terima" className="p-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 dark:bg-emerald-900/40 dark:hover:bg-emerald-900/60 dark:text-emerald-400 rounded-xl transition">
-                                                    <CheckCircle2 className="w-4 h-4" />
-                                                </button>
-                                                <button onClick={() => handleUpdateBookingStatus(b.id, 'REJECTED')} title="Tolak / Batal" className="p-2 bg-rose-100 hover:bg-rose-200 text-rose-700 dark:bg-rose-900/40 dark:hover:bg-rose-900/60 dark:text-rose-400 rounded-xl transition">
-                                                    <XCircle className="w-4 h-4" />
-                                                </button>
+                                            <td className="px-6 py-4 flex justify-center items-center space-x-1.5">
+                                                {b.status !== 'BOOKED' && b.status !== 'BOOKED_PAID' && (
+                                                    <button onClick={() => handleUpdateBookingStatus(b.id, 'BOOKED')} title="Terima / Konfirmasi DP" className="p-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 dark:bg-emerald-900/40 dark:hover:bg-emerald-900/60 dark:text-emerald-400 rounded-xl transition cursor-pointer">
+                                                        <CheckCircle2 className="w-4 h-4" />
+                                                    </button>
+                                                )}
+                                                {b.status === 'BOOKED' && (
+                                                    <button onClick={() => handleUpdateBookingStatus(b.id, 'BOOKED_PAID')} title="Tandai Sudah Lunas" className="px-2.5 py-1.5 bg-blue-100 hover:bg-blue-200 text-blue-700 dark:bg-blue-900/40 dark:hover:bg-blue-900/60 dark:text-blue-300 rounded-xl transition cursor-pointer text-[10px] font-black uppercase tracking-wider">
+                                                        Set Lunas
+                                                    </button>
+                                                )}
+                                                {b.status !== 'REJECTED' && b.status !== 'CANCELLED' && (
+                                                    <button onClick={() => handleUpdateBookingStatus(b.id, 'REJECTED')} title="Tolak / Batal" className="p-2 bg-rose-100 hover:bg-rose-200 text-rose-700 dark:bg-rose-900/40 dark:hover:bg-rose-900/60 dark:text-rose-400 rounded-xl transition cursor-pointer">
+                                                        <XCircle className="w-4 h-4" />
+                                                    </button>
+                                                )}
                                             </td>
                                         </tr>
                                     ))

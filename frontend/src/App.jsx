@@ -311,9 +311,22 @@ export default function App() {
             />
           )}
         </AnimatePresence>
-        <AnimatePresence>{showLogin && <Login /* props */ />}</AnimatePresence>
         <AnimatePresence>
-          {showAccount && <Account /* props */ />}
+          {showLogin && (
+              <Login
+                  onClose={() => setShowLogin(false)}
+                  onLoginSuccess={handleLoginSuccess}
+              />
+          )}
+        </AnimatePresence>
+        <AnimatePresence>
+          {showAccount && (
+              <Account
+                  currentUser={currentUser}
+                  onClose={() => setShowAccount(false)}
+                  onUpdateSuccess={handleUpdateProfileSuccess}
+              />
+          )}
         </AnimatePresence>
           <AnimatePresence>
               {showMyBookings && (

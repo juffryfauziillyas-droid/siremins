@@ -1,18 +1,32 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/logo.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Cikajang Sport Center</title>
-      <script
-              type="text/javascript"
-              src="https://app.sandbox.midtrans.com/snap/snap.js"
-              data-client-key="SB-Mid-client-kNlizOV9YR_uvShlonjGQwvg">
-      </script>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- CSP LONGGAR UNTUK MENGATASI ERROR MIDTRANS DI LOCALHOST -->
+  <meta http-equiv="Content-Security-Policy" content="
+      default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;
+      script-src * 'unsafe-inline' 'unsafe-eval' data: blob:;
+      style-src * 'unsafe-inline' data: blob:;
+      connect-src * 'unsafe-inline';
+      frame-src *;
+    ">
+
+  <title>Cikajang Sport Center</title>
+
+  <script
+          type="text/javascript"
+          src="https://app.sandbox.midtrans.com/snap/snap.js"
+          data-client-key="SB-Mid-client-kNlizOV9YR_uvShlonjGQwvg">
+  </script>
+</head>
+<body>
+<!-- TEMPAT KOMPONEN REACT DI-RENDER -->
+<div id="root"></div>
+
+<!-- SCRIPT UTAMA VITE/REACT -->
+<script type="module" src="/src/main.jsx"></script>
+</body>
 </html>
