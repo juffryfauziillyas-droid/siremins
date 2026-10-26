@@ -16,7 +16,7 @@ export default function Logout({ onClose, onConfirm }) {
         animate={{ scale: 1, y: 0, opacity: 1 }}
         exit={{ scale: 0.95, y: 20, opacity: 0 }}
         transition={{ type: "spring", damping: 25, stiffness: 350 }}
-        className="relative bg-white dark:bg-slate-950 w-full max-w-sm rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-2xl z-10 my-auto text-center select-none"
+        className="relative bg-white dark:bg-slate-800 w-full max-w-sm rounded-3xl p-6 border border-slate-200 dark:border-slate-700 shadow-2xl z-10 my-auto text-center select-none"
       >
         <button
           onClick={onClose}

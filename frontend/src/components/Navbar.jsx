@@ -49,7 +49,7 @@ export default function Navbar({
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         isScrolled
-          ? "bg-white/80 dark:bg-slate-950/80 backdrop-blur-md py-3 shadow-lg shadow-slate-200/50 dark:shadow-none border-b border-slate-200/60 dark:border-slate-800/60"
+          ? "bg-white/80 dark:bg-slate-800/85 backdrop-blur-md py-3 shadow-lg shadow-slate-200/50 dark:shadow-none border-b border-slate-200/60 dark:border-slate-700/60"
           : "bg-transparent py-5 border-b border-transparent"
       }`}
     >
@@ -61,7 +61,7 @@ export default function Navbar({
         >
           <div className="relative">
             <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-emerald-500 p-[2px] shadow-md group-hover:shadow-indigo-500/25 transition-all duration-300">
-              <div className="w-full h-full bg-white dark:bg-slate-950 rounded-[14px] flex items-center justify-center p-1 overflow-hidden">
+              <div className="w-full h-full bg-white dark:bg-slate-800 rounded-[14px] flex items-center justify-center p-1 overflow-hidden">
                 <img
                   src="/images/logo.png"
                   alt="Logo Cikajang Sport Center"
@@ -139,7 +139,7 @@ export default function Navbar({
 
               {/* MENU DROPDOWN */}
               {isDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-52 bg-white dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl p-1.5 space-y-1 z-50">
+                <div className="absolute right-0 mt-2 w-52 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xl p-1.5 space-y-1 z-50">
                   {/* 1. INFO AKUN */}
                   <button
                     type="button"
@@ -226,7 +226,7 @@ export default function Navbar({
 
       {/* DROPDOWN MENU MOBILE */}
       {!isAdmin && isMobileMenuOpen && (
-        <div className="md:hidden absolute top-full left-0 right-0 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 p-5 space-y-3 shadow-2xl">
+        <div className="md:hidden absolute top-full left-0 right-0 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl border-b border-slate-200 dark:border-slate-700 p-5 space-y-3 shadow-2xl">
           <div className="flex flex-col space-y-1 font-bold text-sm">
             <a
               href="#hero"

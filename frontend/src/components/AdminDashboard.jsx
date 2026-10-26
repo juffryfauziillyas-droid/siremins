@@ -300,7 +300,7 @@ export default function AdminDashboard({ currentUser, onLogoutClick }) {
                                             onChange={(event) => {
                                                 if (event.target.value) setSelectedBookingDate(event.target.value);
                                             }}
-                                            className="px-3 py-2 bg-white dark:bg-slate-950 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold focus:outline-blue-500 [color-scheme:light] dark:[color-scheme:dark]"
+                                            className="px-3 py-2 bg-white dark:bg-slate-700 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-600 rounded-lg text-xs font-bold focus:outline-blue-500 [color-scheme:light] dark:[color-scheme:dark]"
                                         />
                                     </label>
                                     <label className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-300">
@@ -308,7 +308,7 @@ export default function AdminDashboard({ currentUser, onLogoutClick }) {
                                         <select
                                             value={bookingStatusFilter}
                                             onChange={(event) => setBookingStatusFilter(event.target.value)}
-                                            className="px-3 py-2 bg-white dark:bg-slate-950 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold focus:outline-blue-500"
+                                            className="px-3 py-2 bg-white dark:bg-slate-700 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-600 rounded-lg text-xs font-bold focus:outline-blue-500"
                                         >
                                             <option value="ALL">Semua status</option>
                                             <option value="PENDING_DP">Pending DP</option>
@@ -329,7 +329,7 @@ export default function AdminDashboard({ currentUser, onLogoutClick }) {
                                 </button>
                             </div>
                             <table className="w-full text-left text-sm text-slate-600 dark:text-slate-300">
-                                <thead className="bg-slate-50 dark:bg-slate-950/50 text-xs uppercase font-black text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
+                                <thead className="bg-slate-50 dark:bg-slate-800 text-xs uppercase font-black text-slate-500 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700">
                                 <tr>
                                     <th className="px-6 py-4">No.</th>
                                     <th className="px-6 py-4">Nama & Kontak</th>
@@ -395,7 +395,7 @@ export default function AdminDashboard({ currentUser, onLogoutClick }) {
                                             onChange={(event) => {
                                                 if (event.target.value) setSelectedBookingDate(event.target.value);
                                             }}
-                                            className="px-3 py-2 bg-white dark:bg-slate-950 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold focus:outline-blue-500 [color-scheme:light] dark:[color-scheme:dark]"
+                                            className="px-3 py-2 bg-white dark:bg-slate-700 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-600 rounded-lg text-xs font-bold focus:outline-blue-500 [color-scheme:light] dark:[color-scheme:dark]"
                                         />
                                     </label>
                                     <button
@@ -475,7 +475,7 @@ export default function AdminDashboard({ currentUser, onLogoutClick }) {
                         {/* ----------------- TAB PENGGUNA ----------------- */}
                         {activeTab === "users" && (
                             <table className="w-full text-left text-sm text-slate-600 dark:text-slate-300">
-                                <thead className="bg-slate-50 dark:bg-slate-950/50 text-xs uppercase font-black text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
+                                <thead className="bg-slate-50 dark:bg-slate-800 text-xs uppercase font-black text-slate-500 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700">
                                 <tr>
                                     <th className="px-6 py-4">No.</th>
                                     <th className="px-6 py-4">Nama Lengkap</th>

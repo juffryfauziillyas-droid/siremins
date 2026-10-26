@@ -1,5 +1,18 @@
 # React + Vite
 
+## WhatsApp kontak admin
+
+Atur nomor WhatsApp tujuan melalui `VITE_ADMIN_WHATSAPP_NUMBER` di file
+`frontend/.env`. Nomor boleh memakai format lokal Indonesia (`08...`) atau
+internasional (`+62...`); aplikasi akan mengubahnya ke format internasional
+untuk tautan WhatsApp. Salin nilai contoh dari `.env.example`, lalu ganti
+dengan nomor resmi admin. Setelah mengubah konfigurasi, mulai ulang server
+frontend; untuk deployment, atur variabel tersebut saat proses build. Jangan
+gunakan nomor contoh untuk deployment.
+
+Tautan WhatsApp universal akan membuka aplikasi WhatsApp jika tersedia di
+perangkat, atau WhatsApp Web melalui browser desktop.
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:

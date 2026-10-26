@@ -208,7 +208,7 @@ export default function Login({ onClose, onLoginSuccess }) {
         animate={{ scale: 1, y: 0, opacity: 1 }}
         exit={{ scale: 0.95, y: 20, opacity: 0 }}
         transition={{ type: "spring", damping: 25, stiffness: 350 }}
-        className="relative bg-white dark:bg-slate-950 w-full max-w-md rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-2xl z-10 my-auto select-none"
+        className="relative bg-white dark:bg-slate-800 w-full max-w-md rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-700 shadow-2xl z-10 my-auto select-none"
       >
         <button
           onClick={onClose}
@@ -250,7 +250,7 @@ export default function Login({ onClose, onLoginSuccess }) {
               setActiveTab("user");
               setUserView("login");
             }}
-            className={`flex items-center justify-center space-x-2 py-2.5 rounded-xl font-extrabold text-xs transition-all duration-200 cursor-pointer ${activeTab === "user" ? "bg-white dark:bg-slate-950 text-slate-900 dark:text-white shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"}`}
+            className={`flex items-center justify-center space-x-2 py-2.5 rounded-xl font-extrabold text-xs transition-all duration-200 cursor-pointer ${activeTab === "user" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm" : "text-slate-500 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"}`}
           >
             <User className="w-4 h-4 text-blue-500 dark:text-emerald-400" />
             <span>Pengunjung</span>
@@ -261,7 +261,7 @@ export default function Login({ onClose, onLoginSuccess }) {
               setActiveTab("admin");
               setUserView("login");
             }}
-            className={`flex items-center justify-center space-x-2 py-2.5 rounded-xl font-extrabold text-xs transition-all duration-200 cursor-pointer ${activeTab === "admin" ? "bg-white dark:bg-slate-950 text-slate-900 dark:text-white shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"}`}
+            className={`flex items-center justify-center space-x-2 py-2.5 rounded-xl font-extrabold text-xs transition-all duration-200 cursor-pointer ${activeTab === "admin" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm" : "text-slate-500 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"}`}
           >
             <ShieldCheck className="w-4 h-4 text-amber-500" />
             <span>Administrator</span>

@@ -2,30 +2,46 @@ import { useState } from "react";
 import {
   MessageSquare,
   User,
-  Mail,
+  Phone,
   FileText,
   Send,
   HelpCircle,
 } from "lucide-react";
 
-export default function ContactSection() {
-  const [contactForm, setContactForm] = useState({
-    name: "",
-    email: "",
-    subject: "Tanya Jadwal / Fasilitas",
-    message: "",
-  });
+const initialContactForm = {
+  name: "",
+  phone_number: "",
+  subject: "Tanya Jadwal / Fasilitas",
+  message: "",
+};
 
-  const ADMIN_WHATSAPP_NUMBER = "628123456789";
+export default function ContactSection() {
+  const [contactForm, setContactForm] = useState(initialContactForm);
+  const [contactError, setContactError] = useState("");
 
   const handleSendMessage = (e) => {
     e.preventDefault();
+
+    const configuredNumber = import.meta.env.VITE_ADMIN_WHATSAPP_NUMBER || "";
+    const digits = configuredNumber.replace(/\D/g, "");
+    const whatsappNumber = digits.startsWith("0")
+      ? `62${digits.slice(1)}`
+      : digits.startsWith("8")
+        ? `62${digits}`
+        : digits;
+
+    if (!/^[1-9]\d{7,14}$/.test(whatsappNumber)) {
+      setContactError(
+        "Nomor WhatsApp admin belum dikonfigurasi. Silakan hubungi pengelola secara langsung.",
+      );
+      return;
+    }
 
     const textFormat = `Halo Admin Cikajang Sport Center,
 
 Saya ingin berkonsultasi mengenai hal berikut:
 👤 *Nama:* ${contactForm.name}
-✉️ *Email:* ${contactForm.email}
+📱 *No. Handphone / WhatsApp:* ${contactForm.phone_number}
 📌 *Subjek:* ${contactForm.subject}
 
 📝 *Pesan Pertanyaan:*
@@ -34,15 +50,17 @@ ${contactForm.message}
 Terima kasih.`;
 
     const encodedText = encodeURIComponent(textFormat);
-    const whatsappUrl = `https://wa.me/${ADMIN_WHATSAPP_NUMBER}?text=${encodedText}`;
+    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodedText}`;
 
-    window.open(whatsappUrl, "_blank");
+    window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+    setContactForm(initialContactForm);
+    setContactError("");
   };
 
   return (
     <section
       id="kontak"
-      className="bg-white dark:bg-slate-950 py-24 px-4 sm:px-6 lg:px-8 transition-colors duration-300 border-t border-slate-100 dark:border-slate-900"
+      className="bg-white dark:bg-slate-800 py-24 px-4 sm:px-6 lg:px-8 transition-colors duration-300 border-t border-slate-100 dark:border-slate-700"
     >
       <div className="max-w-4xl mx-auto space-y-12">
         <div className="text-center max-w-2xl mx-auto space-y-3">
@@ -72,29 +90,33 @@ Terima kasih.`;
                   required
                   placeholder="Contoh: Bambang Pamungkas"
                   value={contactForm.name}
-                  onChange={(e) =>
-                    setContactForm({ ...contactForm, name: e.target.value })
-                  }
-                  className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-950 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-blue-500 text-xs font-medium"
+                  onChange={(e) => {
+                    setContactError("");
+                    setContactForm({ ...contactForm, name: e.target.value });
+                  }}
+                  className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-700 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-600 rounded-xl focus:outline-blue-500 text-xs font-medium"
                 />
               </div>
             </div>
 
             <div>
               <label className="block text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
-                Alamat Email
+                Nomor Handphone / WhatsApp
               </label>
               <div className="relative">
-                <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
                 <input
-                  type="email"
+                  type="tel"
                   required
-                  placeholder="Contoh: bambang@gmail.com"
-                  value={contactForm.email}
-                  onChange={(e) =>
-                    setContactForm({ ...contactForm, email: e.target.value })
-                  }
-                  className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-950 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-blue-500 text-xs font-medium"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  placeholder="Contoh: 081234567890"
+                  value={contactForm.phone_number}
+                  onChange={(e) => {
+                    setContactError("");
+                    setContactForm({ ...contactForm, phone_number: e.target.value });
+                  }}
+                  className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-700 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-600 rounded-xl focus:outline-blue-500 text-xs font-medium"
                 />
               </div>
             </div>
@@ -107,10 +129,11 @@ Terima kasih.`;
                 <FileText className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
                 <select
                   value={contactForm.subject}
-                  onChange={(e) =>
-                    setContactForm({ ...contactForm, subject: e.target.value })
-                  }
-                  className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-950 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-blue-500 text-xs font-bold cursor-pointer"
+                  onChange={(e) => {
+                    setContactError("");
+                    setContactForm({ ...contactForm, subject: e.target.value });
+                  }}
+                  className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-700 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-600 rounded-xl focus:outline-blue-500 text-xs font-bold cursor-pointer"
                 >
                   <option value="Tanya Jadwal / Fasilitas">
                     Tanya Jadwal / Fasilitas
@@ -137,10 +160,11 @@ Terima kasih.`;
                   rows="4"
                   placeholder="Tuliskan pertanyaan Anda secara detail..."
                   value={contactForm.message}
-                  onChange={(e) =>
-                    setContactForm({ ...contactForm, message: e.target.value })
-                  }
-                  className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-950 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-blue-500 text-xs font-medium leading-relaxed"
+                  onChange={(e) => {
+                    setContactError("");
+                    setContactForm({ ...contactForm, message: e.target.value });
+                  }}
+                  className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-700 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-600 rounded-xl focus:outline-blue-500 text-xs font-medium leading-relaxed"
                 />
               </div>
             </div>
@@ -152,6 +176,11 @@ Terima kasih.`;
               <Send className="w-4 h-4" />
               <span>Kirim Pesan via WhatsApp</span>
             </button>
+            {contactError && (
+              <p role="alert" className="text-center text-xs font-semibold text-rose-600 dark:text-rose-400">
+                {contactError}
+              </p>
+            )}
           </form>
         </div>
       </div>

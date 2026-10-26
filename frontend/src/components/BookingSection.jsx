@@ -172,7 +172,7 @@ export default function BookingSection({
 
                     {/* KOLOM KIRI: KALENDER & WAKTU */}
                     <div className="lg:col-span-7 space-y-6">
-                        <div className="bg-slate-50 dark:bg-black/40 p-5 rounded-3xl border border-slate-200 dark:border-white/5 shadow-inner">
+                        <div className="bg-slate-50 dark:bg-slate-700/60 p-5 rounded-3xl border border-slate-200 dark:border-white/10 shadow-inner">
                             <label className="flex items-center text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 uppercase tracking-wider"><Calendar className="w-4 h-4 mr-2 text-emerald-600 dark:text-emerald-400" /> Pilih Tanggal</label>
 
                             <input
@@ -181,17 +181,17 @@ export default function BookingSection({
                                 value={selectedDate}
                                 onChange={(e) => setSelectedDate(e.target.value)}
                                 onKeyDown={(e) => e.preventDefault()} // MENCEGAH KETIK MANUAL
-                                className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-white/10 rounded-2xl px-5 py-3 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-bold transition-all cursor-pointer [color-scheme:light] dark:[color-scheme:dark]"
+                                className="w-full bg-white dark:bg-slate-700 border border-slate-300 dark:border-white/10 rounded-2xl px-5 py-3 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-bold transition-all cursor-pointer [color-scheme:light] dark:[color-scheme:dark]"
                             />
                         </div>
 
                         {/* LEGENDA STATUS TAMBAHAN */}
-                        <div className="flex flex-wrap items-center gap-4 text-[10px] font-bold bg-slate-50 dark:bg-black/40 p-4 rounded-2xl border border-slate-200 dark:border-white/5 text-slate-700 dark:text-slate-300">
+                        <div className="flex flex-wrap items-center gap-4 text-[10px] font-bold bg-slate-50 dark:bg-slate-700/60 p-4 rounded-2xl border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300">
                             <div className="flex items-center space-x-1.5"><span className="w-2.5 h-2.5 bg-emerald-500 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.6)]"></span><span>Tersedia</span></div>
                             <div className="flex items-center space-x-1.5"><span className="w-2.5 h-2.5 bg-rose-500 rounded-full shadow-[0_0_10px_rgba(244,63,94,0.6)]"></span><span>Terpesan / DP</span></div>
                         </div>
 
-                        <div className="bg-slate-50 dark:bg-black/40 p-5 rounded-3xl border border-slate-200 dark:border-white/5">
+                        <div className="bg-slate-50 dark:bg-slate-700/60 p-5 rounded-3xl border border-slate-200 dark:border-white/10">
                             <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-4 uppercase tracking-wider flex items-center"><Clock className="w-4 h-4 mr-2 text-emerald-600 dark:text-emerald-400" /> Slot Waktu</h3>
                             <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar">
                                 {timeSlots.map((time) => {
@@ -234,11 +234,11 @@ export default function BookingSection({
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
                                         <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Nama Pemesan</label>
-                                        <div className="relative"><User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" /><input type="text" required value={formData.customer_name} onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })} className="w-full pl-10 pr-3 py-3 bg-white dark:bg-black/40 border border-slate-300 dark:border-white/10 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 transition-all text-xs font-medium" /></div>
+                                        <div className="relative"><User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" /><input type="text" required value={formData.customer_name} onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })} className="w-full pl-10 pr-3 py-3 bg-white dark:bg-slate-700/60 border border-slate-300 dark:border-white/10 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 transition-all text-xs font-medium" /></div>
                                     </div>
                                     <div>
                                         <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">No. WhatsApp</label>
-                                        <div className="relative"><Phone className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" /><input type="tel" disabled value={formData.phone_number || "-"} className="w-full pl-10 pr-3 py-3 bg-slate-100 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-xl text-slate-500 dark:text-slate-400 transition-all text-xs font-bold cursor-not-allowed" /></div>
+                                        <div className="relative"><Phone className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" /><input type="tel" disabled value={formData.phone_number || "-"} className="w-full pl-10 pr-3 py-3 bg-slate-100 dark:bg-slate-700/40 border border-slate-200 dark:border-white/10 rounded-xl text-slate-500 dark:text-slate-400 transition-all text-xs font-bold cursor-not-allowed" /></div>
                                     </div>
                                 </div>
 
@@ -246,7 +246,7 @@ export default function BookingSection({
                                     <div>
                                         <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Durasi Sewa</label>
                                         <div className="relative"><Layers className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
-                                            <select disabled={!formData.start_time} value={duration} onChange={(e) => handleTimeSelection(formData.start_time, parseInt(e.target.value))} className="w-full pl-9 pr-2 py-3 bg-white dark:bg-black/40 border border-slate-300 dark:border-white/10 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 transition-all text-xs font-bold cursor-pointer disabled:opacity-50">
+                                            <select disabled={!formData.start_time} value={duration} onChange={(e) => handleTimeSelection(formData.start_time, parseInt(e.target.value))} className="w-full pl-9 pr-2 py-3 bg-white dark:bg-slate-700/60 border border-slate-300 dark:border-white/10 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 transition-all text-xs font-bold cursor-pointer disabled:opacity-50">
                                                 {Object.entries(pricing?.packages || {}).map(([hours, price]) => (
                                                     <option key={hours} value={hours}>
                                                         {hours} Jam (Rp {price.toLocaleString("id-ID")})
@@ -257,7 +257,7 @@ export default function BookingSection({
                                     </div>
                                     <div>
                                         <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5 flex justify-between">Nominal DP {!isDpValid && dpAmount > 0 && <span className="text-rose-600 dark:text-rose-400">Min. 25%</span>}</label>
-                                        <div className="relative"><span className="absolute left-3 top-3.5 text-slate-400 text-xs font-black">Rp</span><input type="number" min={minimalDP} max={totalPrice} disabled={!formData.start_time} value={dpAmount} onChange={handleDpChange} className={`w-full pl-9 pr-2 py-3 bg-white dark:bg-black/40 border ${!isDpValid && dpAmount > 0 ? 'border-rose-500/50 focus:border-rose-500' : 'border-slate-300 dark:border-white/10 focus:border-emerald-500'} rounded-xl text-slate-900 dark:text-white focus:outline-none transition-all text-xs font-bold disabled:opacity-50`} /></div>
+                                        <div className="relative"><span className="absolute left-3 top-3.5 text-slate-400 text-xs font-black">Rp</span><input type="number" min={minimalDP} max={totalPrice} disabled={!formData.start_time} value={dpAmount} onChange={handleDpChange} className={`w-full pl-9 pr-2 py-3 bg-white dark:bg-slate-700/60 border ${!isDpValid && dpAmount > 0 ? 'border-rose-500/50 focus:border-rose-500' : 'border-slate-300 dark:border-white/10 focus:border-emerald-500'} rounded-xl text-slate-900 dark:text-white focus:outline-none transition-all text-xs font-bold disabled:opacity-50`} /></div>
                                     </div>
                                 </div>
                             </div>

@@ -10,6 +10,9 @@ import { authenticateToken, requireRole } from "../middleware/authMiddleware.mjs
 const router = express.Router();
 
 router.use(authenticateToken, requireRole("admin"));
+router.get("/me", (req, res) => {
+    res.json({ user: req.user });
+});
 router.get("/bookings", getAllBookings);
 router.put("/bookings/:id", updateBookingStatus);
 router.get("/users", getAllUsers);

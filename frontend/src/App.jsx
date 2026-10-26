@@ -74,6 +74,90 @@ export default function App() {
   const [showLogout, setShowLogout] = useState(false);
 
   useEffect(() => {
+    const isAdmin = Boolean(localStorage.getItem("adminToken"));
+    const hasSessionToken = isAdmin || Boolean(localStorage.getItem("userToken"));
+    if (!hasSessionToken) return undefined;
+
+    let isActive = true;
+    const validateSession = async () => {
+      try {
+        const response = await axios.get(
+          `${API_URL}/${isAdmin ? "admin/me" : "auth/me"}`,
+        );
+        if (!isActive) return;
+
+        const validatedUser = response.data.user;
+        setCurrentUser(validatedUser);
+        localStorage.setItem(
+          isAdmin ? "adminData" : "userData",
+          JSON.stringify(validatedUser),
+        );
+      } catch (error) {
+        if (error.response?.status !== 401) {
+          console.error("Gagal memverifikasi sesi:", error);
+        }
+      }
+    };
+
+    validateSession();
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const interceptorId = axios.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        const requestUrl = String(error.config?.url || "");
+        const requestMethod = String(error.config?.method || "").toLowerCase();
+        const isAdminRequest = requestUrl.includes("/api/admin/");
+        const isProtectedUserRequest =
+          requestUrl.includes("/api/my-bookings") ||
+          requestUrl.includes("/api/payment/token") ||
+          requestUrl.includes("/api/auth/me") ||
+          requestUrl.includes("/api/auth/update-profile") ||
+          (requestUrl.includes("/api/bookings") &&
+            (requestMethod === "post" ||
+              requestUrl.includes("/status") ||
+              requestUrl.includes("/reschedule")));
+        const hasAuthHeader = Boolean(error.config?.headers?.Authorization);
+        const hasStoredToken = Boolean(
+          localStorage.getItem(isAdminRequest ? "adminToken" : "userToken"),
+        );
+
+        if (
+          error.response?.status === 401 &&
+          hasAuthHeader &&
+          hasStoredToken &&
+          (isAdminRequest || isProtectedUserRequest)
+        ) {
+          localStorage.removeItem(isAdminRequest ? "adminToken" : "userToken");
+          localStorage.removeItem(isAdminRequest ? "adminData" : "userData");
+
+          if (isAdminRequest) {
+            sessionStorage.removeItem("siremins-admin-tab");
+          } else {
+            sessionStorage.removeItem("siremins-active-modal");
+            setShowBooking(false);
+            setShowAccount(false);
+            setShowMyBookings(false);
+          }
+
+          setCurrentUser((user) =>
+            user?.role === (isAdminRequest ? "admin" : "user") ? null : user,
+          );
+          toast.error("Sesi Anda telah berakhir. Silakan login kembali.");
+        }
+
+        return Promise.reject(error);
+      },
+    );
+
+    return () => axios.interceptors.response.eject(interceptorId);
+  }, []);
+
+  useEffect(() => {
     const activeModal = showBooking
       ? "booking"
       : showMyBookings
@@ -208,7 +292,7 @@ export default function App() {
         customer_name: userData.name || prev.customer_name,
         phone_number: userData.phone_number || prev.phone_number,
       }));
-      setShowBooking(true);
+      setShowBooking(false);
     } else if (role === "admin") {
       localStorage.setItem("adminData", JSON.stringify(userWithRole));
     }
@@ -262,7 +346,7 @@ export default function App() {
   };
 
     return (
-      <div className="min-h-screen bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 font-sans selection:bg-blue-500 selection:text-white dark:selection:bg-emerald-400 dark:selection:text-slate-950 transition-colors duration-300">
+      <div className="min-h-screen bg-slate-50 text-slate-800 dark:bg-slate-800 dark:text-slate-100 font-sans selection:bg-blue-500 selection:text-white dark:selection:bg-emerald-400 dark:selection:text-slate-950 transition-colors duration-300">
         <Toaster
           position="top-center"
           reverseOrder={false}

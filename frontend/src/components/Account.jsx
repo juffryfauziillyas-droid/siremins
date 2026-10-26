@@ -58,7 +58,7 @@ export default function Account({ currentUser, onClose, onUpdateSuccess }) {
             initial={{ scale: 0.95, y: 20, opacity: 0 }}
             animate={{ scale: 1, y: 0, opacity: 1 }}
             exit={{ scale: 0.95, y: 20, opacity: 0 }}
-            className="relative bg-white dark:bg-slate-950 w-full max-w-md rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-2xl z-10 my-auto select-none"
+            className="relative bg-white dark:bg-slate-800 w-full max-w-md rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-700 shadow-2xl z-10 my-auto select-none"
         >
           {/* TOMBOL X MERAH */}
           <button
