@@ -39,7 +39,7 @@ export default function BookingSection({
         };
     }, []);
 
-    // 1. KUNCI KALENDER (Hanya dari tanggal besok / H+1)
+    // KALENDER 
     const tomorrowDateString = (() => {
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
@@ -49,7 +49,7 @@ export default function BookingSection({
         return `${year}-${month}-${day}`;
     })();
 
-    // 2. RESET FORM SAAT TANGGAL DIGANTI
+    // FORM MENJADI KOSONG SAAT TANGGAL DIGANTI
     useEffect(() => {
         setFormData((prev) => ({ ...prev, start_time: "", end_time: "" }));
     }, [selectedDate, setFormData]);
@@ -69,7 +69,7 @@ export default function BookingSection({
         setFormData((prev) => ({ ...prev, dp_amount: value }));
     };
 
-    // 4. FUNGSI CEK TABRAKAN JADWAL
+    // CEK TABRAKAN JADWAL
     const handleTimeSelection = (time, reqDuration) => {
         const startHour = parseInt(time.split(":")[0], 10);
         let isOverlap = false;
@@ -91,9 +91,8 @@ export default function BookingSection({
         onUpdateBookingTime(time, reqDuration);
     };
 
-    // ===============================================
-    // LOGIKA PEMBAYARAN MIDTRANS
-    // ===============================================
+    
+    // PEMBAYARAN MIDTRANS
     const handleCheckoutMidtrans = async (e) => {
         e.preventDefault();
         if (!isDpValid || !formData.start_time) return;
@@ -185,7 +184,7 @@ export default function BookingSection({
                             />
                         </div>
 
-                        {/* LEGENDA STATUS TAMBAHAN */}
+                        {/* STATUS TAMBAHAN */}
                         <div className="flex flex-wrap items-center gap-4 text-[10px] font-bold bg-slate-50 dark:bg-slate-700/60 p-4 rounded-2xl border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300">
                             <div className="flex items-center space-x-1.5"><span className="w-2.5 h-2.5 bg-emerald-500 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.6)]"></span><span>Tersedia</span></div>
                             <div className="flex items-center space-x-1.5"><span className="w-2.5 h-2.5 bg-rose-500 rounded-full shadow-[0_0_10px_rgba(244,63,94,0.6)]"></span><span>Terpesan / DP</span></div>
@@ -227,7 +226,7 @@ export default function BookingSection({
                         </div>
                     </div>
 
-                    {/* KOLOM KANAN: FORM & CHECKOUT */}
+                    {/* FORM & CHECKOUT */}
                     <div className="lg:col-span-5 flex flex-col h-full">
                         <form onSubmit={handleCheckoutMidtrans} className="flex flex-col flex-grow bg-slate-50 dark:bg-white/5 p-5 rounded-3xl border border-slate-200 dark:border-white/10 shadow-inner">
                             <div className="space-y-4 mb-5">
@@ -262,7 +261,7 @@ export default function BookingSection({
                                 </div>
                             </div>
 
-                            {/* CARD RINGKASAN HARGA */}
+                            {/* RINGKASAN HARGA */}
                             <div className="mt-auto bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-900/30 dark:to-slate-900/60 p-5 rounded-2xl border border-emerald-500/20 mb-5 shadow-md">
                                 <h4 className="text-emerald-700 dark:text-emerald-400 font-bold text-xs uppercase tracking-widest mb-3 flex items-center">
                                     <CreditCard className="w-4 h-4 mr-2" /> Kalkulasi Biaya
@@ -285,7 +284,7 @@ export default function BookingSection({
                                 </div>
                             </div>
 
-                            {/* TOMBOL BAYAR MIDTRANS */}
+                            {/* BAYAR MIDTRANS */}
                             <button
                                 type="submit"
                                 disabled={!pricing || Boolean(pricingError) || !formData.start_time || !isDpValid}

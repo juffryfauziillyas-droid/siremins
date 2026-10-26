@@ -50,7 +50,7 @@ export default function Footer() {
         <div
           className="grid grid-cols-1 gap-10 border-b border-white/10 pb-12 md:grid-cols-2 lg:grid-cols-4"
         >
-          {/* BRAND & DESKRIPSI (PENGATURAN LOGO FOOTER DI SINI) */}
+          {/*DESKRIPSI*/}
           <div className="space-y-5 md:col-span-2 lg:col-span-2">
             <motion.div
               initial={shouldReduceMotion ? false : "hidden"}
@@ -59,7 +59,7 @@ export default function Footer() {
               className="flex items-center space-x-3"
             >
               <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-blue-500 via-indigo-500 to-emerald-400 p-[2px] shadow-lg shadow-emerald-500/10">
-                {/* GAMBAR LOGO FOOTER */}
+                {/*LOGO*/}
                 <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-[14px] bg-slate-800 p-1">
                   <img
                     src="/images/logo.png"
@@ -161,7 +161,7 @@ export default function Footer() {
             </ul>
           </motion.div>
 
-          {/* PETA LOKASI GOOGLE MAPS */}
+          {/* PETA LOKASI */}
           <motion.div
             initial={shouldReduceMotion ? false : "hidden"}
             animate="visible"

@@ -18,7 +18,9 @@ const API_URL = "http://localhost:5000/api";
 
 axios.interceptors.request.use((config) => {
   const isAdminRequest = String(config.url || "").includes("/api/admin/");
-  const token = localStorage.getItem(isAdminRequest ? "adminToken" : "userToken");
+  const token = localStorage.getItem(
+    isAdminRequest ? "adminToken" : "userToken",
+  );
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -26,18 +28,17 @@ axios.interceptors.request.use((config) => {
 });
 
 export default function App() {
-    // === TEMPATKAN KODE DI SINI ===
-    const getTomorrowLocalDateString = () => {
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const year = tomorrow.getFullYear();
-        const month = String(tomorrow.getMonth() + 1).padStart(2, '0');
-        const day = String(tomorrow.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    };
-
-    const [selectedDate, setSelectedDate] = useState(getTomorrowLocalDateString());
-    // ==============================
+  const getTomorrowLocalDateString = () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const year = tomorrow.getFullYear();
+    const month = String(tomorrow.getMonth() + 1).padStart(2, "0");
+    const day = String(tomorrow.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+  const [selectedDate, setSelectedDate] = useState(
+    getTomorrowLocalDateString(),
+  );
   const [bookedSlots, setBookedSlots] = useState([]);
   const [formData, setFormData] = useState({
     customer_name: "",
@@ -56,26 +57,35 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(() => {
     const savedUser = localStorage.getItem("userData");
     const savedAdmin = localStorage.getItem("adminData");
-    if (savedUser && localStorage.getItem("userToken")) return JSON.parse(savedUser);
-    if (savedAdmin && localStorage.getItem("adminToken")) return JSON.parse(savedAdmin);
+    if (savedUser && localStorage.getItem("userToken"))
+      return JSON.parse(savedUser);
+    if (savedAdmin && localStorage.getItem("adminToken"))
+      return JSON.parse(savedAdmin);
     return null;
   });
 
-  const [showBooking, setShowBooking] = useState(() =>
-    currentUser?.role === "user" && sessionStorage.getItem("siremins-active-modal") === "booking"
+  const [showBooking, setShowBooking] = useState(
+    () =>
+      currentUser?.role === "user" &&
+      sessionStorage.getItem("siremins-active-modal") === "booking",
   );
   const [showLogin, setShowLogin] = useState(false);
-  const [showAccount, setShowAccount] = useState(() =>
-    currentUser?.role === "user" && sessionStorage.getItem("siremins-active-modal") === "account"
+  const [showAccount, setShowAccount] = useState(
+    () =>
+      currentUser?.role === "user" &&
+      sessionStorage.getItem("siremins-active-modal") === "account",
   );
-  const [showMyBookings, setShowMyBookings] = useState(() =>
-    currentUser?.role === "user" && sessionStorage.getItem("siremins-active-modal") === "my-bookings"
+  const [showMyBookings, setShowMyBookings] = useState(
+    () =>
+      currentUser?.role === "user" &&
+      sessionStorage.getItem("siremins-active-modal") === "my-bookings",
   );
   const [showLogout, setShowLogout] = useState(false);
 
   useEffect(() => {
     const isAdmin = Boolean(localStorage.getItem("adminToken"));
-    const hasSessionToken = isAdmin || Boolean(localStorage.getItem("userToken"));
+    const hasSessionToken =
+      isAdmin || Boolean(localStorage.getItem("userToken"));
     if (!hasSessionToken) return undefined;
 
     let isActive = true;
@@ -314,18 +324,18 @@ export default function App() {
     toast.success("Berhasil keluar dari akun.");
   };
 
-    const getSlotStatus = (time) => {
-        const match = bookedSlots.find((slot) => {
-            const bStart = parseInt(slot.start_time.split(":")[0], 10);
-            let bEnd = parseInt(slot.end_time.split(":")[0], 10);
-            if (bEnd === 0) bEnd = 24;
+  const getSlotStatus = (time) => {
+    const match = bookedSlots.find((slot) => {
+      const bStart = parseInt(slot.start_time.split(":")[0], 10);
+      let bEnd = parseInt(slot.end_time.split(":")[0], 10);
+      if (bEnd === 0) bEnd = 24;
 
-            const currentHour = parseInt(time.split(":")[0], 10);
-            return currentHour >= bStart && currentHour < bEnd;
-        });
+      const currentHour = parseInt(time.split(":")[0], 10);
+      return currentHour >= bStart && currentHour < bEnd;
+    });
 
-        return match ? match.status : "AVAILABLE";
-    };
+    return match ? match.status : "AVAILABLE";
+  };
 
   const handleBookingConfirmed = async () => {
     const updatedData = await axios.get(
@@ -345,117 +355,114 @@ export default function App() {
     },
   };
 
-    return (
-      <div className="min-h-screen bg-slate-50 text-slate-800 dark:bg-slate-800 dark:text-slate-100 font-sans selection:bg-blue-500 selection:text-white dark:selection:bg-emerald-400 dark:selection:text-slate-950 transition-colors duration-300">
-        <Toaster
-          position="top-center"
-          reverseOrder={false}
-          toastOptions={{
-            duration: 3000,
-            className:
-              "bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 shadow-2xl rounded-2xl text-xs font-black tracking-wide",
-            success: { iconTheme: { primary: "#10b981", secondary: "#fff" } },
-            error: { iconTheme: { primary: "#f43f5e", secondary: "#fff" } },
-          }}
-        />
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-800 dark:bg-slate-800 dark:text-slate-100 font-sans selection:bg-blue-500 selection:text-white dark:selection:bg-emerald-400 dark:selection:text-slate-950 transition-colors duration-300">
+      <Toaster
+        position="top-center"
+        reverseOrder={false}
+        toastOptions={{
+          duration: 3000,
+          className:
+            "bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 shadow-2xl rounded-2xl text-xs font-black tracking-wide",
+          success: { iconTheme: { primary: "#10b981", secondary: "#fff" } },
+          error: { iconTheme: { primary: "#f43f5e", secondary: "#fff" } },
+        }}
+      />
 
-        <Navbar
-          darkMode={darkMode}
-          setDarkMode={setDarkMode}
-          onLoginClick={() => setShowLogin(true)}
+      <Navbar
+        darkMode={darkMode}
+        setDarkMode={setDarkMode}
+        onLoginClick={() => setShowLogin(true)}
+        currentUser={currentUser}
+        isAdmin={currentUser?.role === "admin"}
+        onOpenAccount={() => setShowAccount(true)}
+        onOpenMyBookings={() => setShowMyBookings(true)}
+        onOpenLogout={() => setShowLogout(true)}
+      />
+
+      {currentUser?.role === "admin" ? (
+        <AdminDashboard
           currentUser={currentUser}
-          isAdmin={currentUser?.role === "admin"}
-          onOpenAccount={() => setShowAccount(true)}
-          onOpenMyBookings={() => setShowMyBookings(true)}
-          onOpenLogout={() => setShowLogout(true)}
+          onLogoutClick={() => setShowLogout(true)}
         />
+      ) : (
+        <>
+          <motion.div initial="hidden" animate="visible" variants={fadeInUp}>
+            <Hero onBookingClick={handleOpenBooking} />
+          </motion.div>
 
-        {/* RENDER KONDISIONAL UTAMA */}
-        {currentUser?.role === "admin" ? (
-          // Tambahkan prop onLogoutClick agar Admin tetap bisa logout dari dalam dashboard
-          <AdminDashboard
-            currentUser={currentUser}
-            onLogoutClick={() => setShowLogout(true)}
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, amount: 0.2 }}
+            variants={fadeInUp}
+          >
+            <Features onSelectMiniSoccer={handleOpenBooking} />
+          </motion.div>
+
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, amount: 0.1 }}
+            variants={fadeInUp}
+          >
+            <ContactSection />
+          </motion.div>
+        </>
+      )}
+
+    
+      <AnimatePresence>
+        {showBooking && (
+          <BookingSection
+            onClose={() => setShowBooking(false)}
+            selectedDate={selectedDate}
+            setSelectedDate={setSelectedDate}
+            timeSlots={timeSlots}
+            getSlotStatus={getSlotStatus}
+            formData={formData}
+            setFormData={setFormData}
+            onUpdateBookingTime={updateBookingTime}
+            onBookingConfirmed={handleBookingConfirmed}
+            duration={duration}
           />
-        ) : (
-          <>
-            <motion.div initial="hidden" animate="visible" variants={fadeInUp}>
-              <Hero onBookingClick={handleOpenBooking} />
-            </motion.div>
-
-            <motion.div
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, amount: 0.2 }}
-              variants={fadeInUp}
-            >
-              <Features onSelectMiniSoccer={handleOpenBooking} />
-            </motion.div>
-
-            <motion.div
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, amount: 0.1 }}
-              variants={fadeInUp}
-            >
-              <ContactSection />
-            </motion.div>
-          </>
         )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showLogin && (
+          <Login
+            onClose={() => setShowLogin(false)}
+            onLoginSuccess={handleLoginSuccess}
+          />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showAccount && (
+          <Account
+            currentUser={currentUser}
+            onClose={() => setShowAccount(false)}
+            onUpdateSuccess={handleUpdateProfileSuccess}
+          />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showMyBookings && (
+          <MyBookingsModal
+            currentUser={currentUser}
+            onClose={() => setShowMyBookings(false)}
+          />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showLogout && (
+          <Logout
+            onClose={() => setShowLogout(false)}
+            onConfirm={handleConfirmLogout}
+          />
+        )}
+      </AnimatePresence>
 
-        {/* ... (BIARKAN SEMUA MODAL AnimatePresence TETAP DI SINI) ... */}
-        <AnimatePresence>
-          {showBooking && (
-            <BookingSection
-              onClose={() => setShowBooking(false)}
-              selectedDate={selectedDate}
-              setSelectedDate={setSelectedDate}
-              timeSlots={timeSlots}
-              getSlotStatus={getSlotStatus}
-              formData={formData}
-              setFormData={setFormData}
-              onUpdateBookingTime={updateBookingTime}
-              onBookingConfirmed={handleBookingConfirmed}
-              duration={duration}
-            />
-          )}
-        </AnimatePresence>
-        <AnimatePresence>
-          {showLogin && (
-              <Login
-                  onClose={() => setShowLogin(false)}
-                  onLoginSuccess={handleLoginSuccess}
-              />
-          )}
-        </AnimatePresence>
-        <AnimatePresence>
-          {showAccount && (
-              <Account
-                  currentUser={currentUser}
-                  onClose={() => setShowAccount(false)}
-                  onUpdateSuccess={handleUpdateProfileSuccess}
-              />
-          )}
-        </AnimatePresence>
-          <AnimatePresence>
-              {showMyBookings && (
-                  <MyBookingsModal
-                      currentUser={currentUser}
-                      onClose={() => setShowMyBookings(false)}
-                  />
-              )}
-          </AnimatePresence>
-        <AnimatePresence>
-          {showLogout && (
-            <Logout
-              onClose={() => setShowLogout(false)}
-              onConfirm={handleConfirmLogout}
-            />
-          )}
-        </AnimatePresence>
-
-        {/* TAMPILKAN FOOTER HANYA JIKA BUKAN ADMIN */}
-        {currentUser?.role !== "admin" && <Footer />}
-      </div>
-    );
+      {currentUser?.role !== "admin" && <Footer />}
+    </div>
+  );
 }

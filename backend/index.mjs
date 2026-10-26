@@ -19,9 +19,7 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// ==========================================
 // DAFTAR ROUTES (API ENDPOINTS)
-// ==========================================
 app.use("/api/auth", authRoutes);
 app.use("/api", bookingRoutes);
 app.use("/api/payment", paymentRoutes);
@@ -32,14 +30,10 @@ app.get("/api/health", (req, res) => {
     res.json({ status: "OK", message: "SIREMINS API is running smoothly." });
 });
 
-// ==========================================
 // BACKGROUND SERVICES / SCHEDULER
-// ==========================================
 startAutoCancelScheduler();
 
-// ==========================================
 // LISTENER SERVER
-// ==========================================
 app.listen(PORT, () => {
     console.log(`Server backend aktif di http://localhost:${PORT}`);
 });

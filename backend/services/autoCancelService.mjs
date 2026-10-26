@@ -1,9 +1,8 @@
 import db from "../db.mjs";
 
-// ==========================================
-// AUTO-CANCEL JADWAL (5 MENIT SEBELUM MAIN JIKA BELUM LUNAS)
-// ==========================================
-// Sistem akan mengecek database setiap 1 menit (60.000 milidetik)
+// Batal otomatis jika 5 menit sebelum bermain tidak dilakukan pembayaran
+
+// cek database setiap 1 menit
 export const startAutoCancelScheduler = () => {
     setInterval(async () => {
         try {

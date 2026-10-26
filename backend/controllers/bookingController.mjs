@@ -113,7 +113,7 @@ export const getBookingPricing = (_req, res) => {
     });
 };
 
-// 1. MENGAMBIL JADWAL BOOKING BERDASARKAN TANGGAL
+// AMBIL JADWAL BOOKING 
 export const getBookingsByDate = async (req, res) => {
     try {
         const { date, exclude_booking_id: excludeBookingId } = req.query;
@@ -143,7 +143,7 @@ export const getBookingsByDate = async (req, res) => {
     }
 };
 
-// 2. BUAT BOOKING BARU (DENGAN PENGECEKAN OVERLAP / BENTROK JAM)
+// BUAT BOOKING BARU 
 export const createBooking = async (req, res) => {
     try {
         const body = req.body && typeof req.body === "object" ? req.body : {};
@@ -256,7 +256,7 @@ export const createBooking = async (req, res) => {
     }
 };
 
-// 3. AMBIL RIWAYAT BOOKING PENGUNJUNG
+// RIWAYAT BOOKING CUST
 export const getMyBookings = async (req, res) => {
     try {
         const [bookings] = await db.query(
@@ -278,7 +278,7 @@ export const getMyBookings = async (req, res) => {
     }
 };
 
-// 4. UPDATE STATUS BOOKING (BAYAR / BATAL DARI SISI USER ATAU SNAP)
+// UPDATE STATUS BOOKING
 export const updateBookingStatus = async (req, res) => {
     try {
         const { id } = req.params;
@@ -335,7 +335,7 @@ export const updateBookingStatus = async (req, res) => {
     }
 };
 
-// 5. RESCHEDULE (GANTI JAM BOOKING DENGAN PENGECEKAN OVERLAP)
+// GANTI JAM BOOKING 
 export const rescheduleBooking = async (req, res) => {
     try {
         const { id } = req.params;
@@ -345,7 +345,7 @@ export const rescheduleBooking = async (req, res) => {
             return res.status(400).json({ message: "Jam mulai dan jam selesai wajib diisi." });
         }
 
-        // Ambil data booking yang ingin dipindahkan
+        // Ambil data akan dipindahkan
         const [current] = await db.query(
             `SELECT id, DATE_FORMAT(booking_date, '%Y-%m-%d') AS booking_date
              FROM bookings
@@ -358,14 +358,14 @@ export const rescheduleBooking = async (req, res) => {
 
         const bookingDate = current[0].booking_date;
 
-        // Normalisasi end_time jika jam 24 / 00:00
+        // end_time jika jam 24 / 00:00
         let normalizedEndTime = end_time;
         if (normalizedEndTime === "00:00" || normalizedEndTime === "00:00:00") {
             normalizedEndTime = "24:00:00";
         }
         let normalizedStartTime = start_time;
 
-        // Validasi urutan jam
+        // urutan jam
         if (normalizedStartTime >= normalizedEndTime) {
             return res.status(400).json({ message: "Jam mulai harus lebih awal dari jam selesai." });
         }

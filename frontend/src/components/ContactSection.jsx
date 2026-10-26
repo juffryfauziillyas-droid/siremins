@@ -40,11 +40,10 @@ export default function ContactSection() {
     const textFormat = `Halo Admin Cikajang Sport Center,
 
 Saya ingin berkonsultasi mengenai hal berikut:
-👤 *Nama:* ${contactForm.name}
-📱 *No. Handphone / WhatsApp:* ${contactForm.phone_number}
-📌 *Subjek:* ${contactForm.subject}
-
-📝 *Pesan Pertanyaan:*
+*Nama:* ${contactForm.name}
+*No. Handphone / WhatsApp:* ${contactForm.phone_number}
+*Subjek:* ${contactForm.subject}
+*Pesan Pertanyaan:*
 ${contactForm.message}
 
 Terima kasih.`;

@@ -190,7 +190,7 @@ export const requestPasswordResetOtp = async (req, res) => {
     }
 };
 
-// 4. VERIFIKASI OTP DAN RESET KATA SANDI
+// VERIFIKASI OTP
 export const resetPassword = async (req, res) => {
     try {
         const phoneNumber = String(req.body.phone_number || "").trim();
@@ -277,7 +277,7 @@ export const resetPassword = async (req, res) => {
     }
 };
 
-// 5. LOGIN ADMIN
+// LOGIN ADMIN
 export const adminLogin = async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -323,7 +323,7 @@ export const adminLogin = async (req, res) => {
     }
 };
 
-// 6. UPDATE PROFIL
+// UPDATE PROFIL
 export const updateProfile = async (req, res) => {
     try {
         const { name, currentPassword, newPassword } = req.body;

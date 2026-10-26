@@ -214,7 +214,7 @@ export default function MyBookingsModal({ currentUser, onClose }) {
         }
     };
 
-    // Helper format jam mulai & durasi sewa
+    //format jam mulai & durasi sewa
     const formatBookingTime = (startTime, endTime) => {
         if (!startTime) return "-";
         const startHour = parseInt(startTime.split(":")[0], 10);
