@@ -15,8 +15,7 @@ import {
   KeyRound,
 } from "lucide-react";
 import axios from "axios";
-
-const API_URL = "http://localhost:5000/api";
+import { API_URL } from "../config/api";
 
 export default function Login({ onClose, onLoginSuccess }) {
   const [activeTab, setActiveTab] = useState("user");
@@ -28,6 +27,7 @@ export default function Login({ onClose, onLoginSuccess }) {
     phone_number: "",
     password: "",
     confirmPassword: "",
+    otp: "",
   });
   const [forgotForm, setForgotForm] = useState({
     phone_number: "",
@@ -40,6 +40,7 @@ export default function Login({ onClose, onLoginSuccess }) {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
+  const [registerOtpSent, setRegisterOtpSent] = useState(false);
 
   const handleUserLogin = async (e) => {
     e.preventDefault();
@@ -76,14 +77,22 @@ export default function Login({ onClose, onLoginSuccess }) {
       toast.error("Konfirmasi kata sandi tidak cocok.");
       return;
     }
+    if (!registerOtpSent) {
+      toast.error("Kirim dan masukkan kode OTP WhatsApp terlebih dahulu.");
+      return;
+    }
+    if (!/^\d{6}$/.test(registerForm.otp)) {
+      toast.error("Kode OTP WhatsApp harus 6 digit.");
+      return;
+    }
     setLoading(true);
-    const toastId = toast.loading("Mendaftarkan akun...");
+    const toastId = toast.loading("Memverifikasi nomor WhatsApp...");
 
     try {
-      const res = await axios.post(`${API_URL}/auth/register`, {
+      const res = await axios.post(`${API_URL}/auth/verify-registration-otp`, {
         name: registerForm.name,
         phone_number: registerForm.phone_number,
-        password: registerForm.password,
+        otp: registerForm.otp,
       });
 
       toast.success(res.data.message || "Pendaftaran akun berhasil!", {
@@ -91,12 +100,40 @@ export default function Login({ onClose, onLoginSuccess }) {
       });
       setTimeout(() => {
         setUserView("login");
+        setRegisterOtpSent(false);
         setUserForm({ phone_number: registerForm.phone_number, password: "" });
       }, 1000);
     } catch (err) {
       const errorMsg =
         err.response?.data?.message || "Gagal mendaftar. Silakan coba lagi.";
       toast.error(errorMsg, { id: toastId });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRequestRegistrationOtp = async () => {
+    if (!registerForm.name.trim() || !registerForm.phone_number.trim()) {
+      toast.error("Nama dan nomor WhatsApp wajib diisi.");
+      return;
+    }
+    if (registerForm.password !== registerForm.confirmPassword) {
+      toast.error("Konfirmasi kata sandi tidak cocok.");
+      return;
+    }
+
+    setLoading(true);
+    const toastId = toast.loading("Mengirim OTP melalui WhatsApp...");
+    try {
+      const res = await axios.post(`${API_URL}/auth/request-registration-otp`, {
+        name: registerForm.name,
+        phone_number: registerForm.phone_number,
+        password: registerForm.password,
+      });
+      setRegisterOtpSent(true);
+      toast.success(res.data.message || "OTP WhatsApp telah dikirim.", { id: toastId });
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Gagal mengirim OTP WhatsApp.", { id: toastId });
     } finally {
       setLoading(false);
     }
@@ -385,10 +422,14 @@ export default function Login({ onClose, onLoginSuccess }) {
                       placeholder="Contoh: 081234567890"
                       value={registerForm.phone_number}
                       onChange={(e) =>
-                        setRegisterForm({
-                          ...registerForm,
-                          phone_number: e.target.value,
-                        })
+                        {
+                          setRegisterOtpSent(false);
+                          setRegisterForm({
+                            ...registerForm,
+                            phone_number: e.target.value,
+                            otp: "",
+                          });
+                        }
                       }
                       className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-emerald-500 text-xs font-medium"
                     />
@@ -436,6 +477,37 @@ export default function Login({ onClose, onLoginSuccess }) {
                     />
                   </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={handleRequestRegistrationOtp}
+                  disabled={loading}
+                  className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-2.5 px-4 rounded-xl transition duration-200 text-xs uppercase tracking-widest disabled:opacity-60 cursor-pointer"
+                >
+                  {loading ? "Mengirim OTP..." : registerOtpSent ? "Kirim Ulang OTP WhatsApp" : "Kirim OTP WhatsApp"}
+                </button>
+                {registerOtpSent && (
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                      Kode OTP WhatsApp
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]{6}"
+                      maxLength={6}
+                      required
+                      placeholder="Masukkan 6 digit OTP"
+                      value={registerForm.otp}
+                      onChange={(e) =>
+                        setRegisterForm({
+                          ...registerForm,
+                          otp: e.target.value.replace(/\D/g, "").slice(0, 6),
+                        })
+                      }
+                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-emerald-500 text-xs font-medium"
+                    />
+                  </div>
+                )}
                 <button
                   type="submit"
                   disabled={loading}

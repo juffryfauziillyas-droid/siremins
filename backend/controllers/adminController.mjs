@@ -1,5 +1,7 @@
 import db from "../db.mjs";
 import { withBookingDateLock } from "../services/bookingSlotService.mjs";
+import { randomBytes } from "node:crypto";
+import { getBookingTotal, MINIMUM_DP_RATE } from "../services/bookingPricing.mjs";
 // ADMIN AMBIL DATA BOOKING
 export const getAllBookings = async (req, res) => {
     try {
@@ -63,6 +65,97 @@ export const updateBookingStatus = async (req, res) => {
     } catch (error) {
         console.error("Error Update Booking Status:", error);
         return res.status(500).json({ message: "Gagal memperbarui status." });
+    }
+};
+
+export const verifyManualPayment = async (req, res) => {
+    const { id } = req.params;
+    const { payment_type: paymentType } = req.body;
+    if (!["DP", "SETTLEMENT"].includes(paymentType)) {
+        return res.status(400).json({ message: "Jenis pembayaran manual tidak valid." });
+    }
+
+    try {
+        const [bookings] = await db.query(
+            `SELECT id, DATE_FORMAT(booking_date, '%Y-%m-%d') AS booking_date,
+                    start_time, end_time, dp_amount, status
+             FROM bookings
+             WHERE id = ?`,
+            [id]
+        );
+        if (bookings.length === 0) {
+            return res.status(404).json({ message: "Booking tidak ditemukan." });
+        }
+
+        const booking = bookings[0];
+        const totalPrice = getBookingTotal(booking);
+        const dpAmount = booking.dp_amount === null || booking.dp_amount === undefined
+            ? totalPrice * MINIMUM_DP_RATE
+            : Number(booking.dp_amount);
+        const expectedAmount = paymentType === "DP" ? dpAmount : totalPrice - dpAmount;
+        const expectedCurrentStatus = paymentType === "DP" ? "PENDING_DP" : "BOOKED";
+        const nextStatus = paymentType === "DP" ? "BOOKED" : "BOOKED_PAID";
+
+        if (
+            !Number.isInteger(totalPrice)
+            || !Number.isInteger(dpAmount)
+            || dpAmount < totalPrice * MINIMUM_DP_RATE
+            || dpAmount > totalPrice
+            || !Number.isInteger(expectedAmount)
+            || expectedAmount <= 0
+        ) {
+            return res.status(409).json({ message: "Nominal booking tidak valid untuk pembayaran manual." });
+        }
+        if (booking.status !== expectedCurrentStatus) {
+            return res.status(409).json({
+                message: paymentType === "DP"
+                    ? "Verifikasi DP manual hanya dapat dilakukan untuk booking berstatus PENDING_DP."
+                    : "Verifikasi pelunasan manual hanya dapat dilakukan untuk booking berstatus BOOKED.",
+            });
+        }
+
+        await withBookingDateLock(db, booking.booking_date, async (connection) => {
+            await connection.beginTransaction();
+            try {
+                const [currentRows] = await connection.query(
+                    "SELECT status FROM bookings WHERE id = ? FOR UPDATE",
+                    [id]
+                );
+                if (!currentRows.length || currentRows[0].status !== expectedCurrentStatus) {
+                    await connection.rollback();
+                    throw new Error("BOOKING_STATUS_CHANGED");
+                }
+
+                await connection.query(
+                    "UPDATE bookings SET status = ? WHERE id = ? AND status = ?",
+                    [nextStatus, id, expectedCurrentStatus]
+                );
+
+                const orderId = `MANUAL-${id}-${randomBytes(6).toString("hex").toUpperCase()}`;
+                await connection.query(
+                    `INSERT INTO midtrans_payment_transactions
+                        (order_id, booking_id, payment_type, gross_amount, transaction_status)
+                     VALUES (?, ?, ?, ?, 'SETTLEMENT')`,
+                    [orderId, id, paymentType, expectedAmount]
+                );
+                await connection.commit();
+            } catch (error) {
+                await connection.rollback();
+                throw error;
+            }
+        });
+
+        return res.json({
+            message: paymentType === "DP"
+                ? "Pembayaran DP manual berhasil diverifikasi. Booking telah berubah menjadi BOOKED."
+                : "Pelunasan manual berhasil diverifikasi. Booking telah berubah menjadi BOOKED_PAID.",
+        });
+    } catch (error) {
+        if (error.message === "BOOKING_STATUS_CHANGED") {
+            return res.status(409).json({ message: "Status booking berubah sebelum pembayaran manual diverifikasi." });
+        }
+        console.error("Error verifikasi pembayaran manual:", error);
+        return res.status(500).json({ message: "Gagal memverifikasi pembayaran manual." });
     }
 };
 

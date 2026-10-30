@@ -13,8 +13,7 @@ import Account from "./components/Account";
 import MyBookingsModal from "./components/MyBookings";
 import Logout from "./components/Logout";
 import Footer from "./components/Footer";
-
-const API_URL = "http://localhost:5000/api";
+import { API_URL } from "./config/api";
 
 axios.interceptors.request.use((config) => {
   const isAdminRequest = String(config.url || "").includes("/api/admin/");
@@ -191,7 +190,7 @@ export default function App() {
     setFormData((prev) => ({
       ...prev,
       start_time: startTime,
-      end_time: `${startHour + nextDuration}:00`,
+      end_time: `${String(startHour + nextDuration).padStart(2, "0")}:00`,
     }));
   };
 

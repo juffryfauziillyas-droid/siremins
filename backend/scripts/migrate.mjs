@@ -41,6 +41,17 @@ const requiredColumns = {
             "last_sent_at",
         ],
     },
+    "2026-10-24-create-registration-otp-challenges.sql": {
+        registration_otp_challenges: [
+            "phone_number",
+            "name",
+            "password_hash",
+            "otp_hash",
+            "expires_at",
+            "attempts",
+            "last_sent_at",
+        ],
+    },
 };
 
 let connection;

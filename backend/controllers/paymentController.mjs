@@ -9,37 +9,44 @@ const verifyNotificationSignature = (notification, serverKey) => {
         return false;
     }
     const { order_id: orderId, status_code: statusCode, gross_amount: grossAmount, signature_key: signature } = notification;
+    const normalizedOrderId = typeof orderId === "string" ? orderId : null;
+    const normalizedStatusCode = statusCode === undefined || statusCode === null ? null : String(statusCode);
+    const normalizedGrossAmount = grossAmount === undefined || grossAmount === null ? null : String(grossAmount);
+    const normalizedSignature = typeof signature === "string" ? signature.trim() : null;
     if (
-        typeof orderId !== "string"
-        || typeof statusCode !== "string"
-        || typeof grossAmount !== "string"
-        || typeof signature !== "string"
-        || !/^\d+(?:\.00)?$/.test(grossAmount)
-        || !/^[a-f\d]{128}$/i.test(signature)
+        normalizedOrderId === null
+        || normalizedStatusCode === null
+        || normalizedGrossAmount === null
+        || normalizedSignature === null
+        || !/^\d+(?:\.\d+)?$/.test(normalizedGrossAmount)
+        || !/^[a-f\d]{128}$/i.test(normalizedSignature)
     ) {
         return false;
     }
 
     const expectedSignature = createHash("sha512")
-        .update(`${orderId}${statusCode}${grossAmount}${serverKey}`)
+        .update(`${normalizedOrderId}${normalizedStatusCode}${normalizedGrossAmount}${serverKey}`)
         .digest();
-    const receivedSignature = Buffer.from(signature, "hex");
+    const receivedSignature = Buffer.from(normalizedSignature, "hex");
     return receivedSignature.length === expectedSignature.length
         && timingSafeEqual(receivedSignature, expectedSignature);
 };
 
 const getNotificationResult = (notification) => {
-    if (notification.transaction_status === "settlement") return "SETTLEMENT";
+    const transactionStatus = typeof notification.transaction_status === "string"
+        ? notification.transaction_status.toLowerCase()
+        : "";
+    if (transactionStatus === "settlement") return "SETTLEMENT";
     if (
-        notification.transaction_status === "capture"
-        && notification.fraud_status === "accept"
+        transactionStatus === "capture"
+        && String(notification.fraud_status || "").toLowerCase() === "accept"
     ) {
         return "CAPTURE";
     }
-    if (["pending", "deny", "cancel", "expire"].includes(notification.transaction_status)) {
-        return notification.transaction_status.toUpperCase();
+    if (["pending", "deny", "cancel", "expire"].includes(transactionStatus)) {
+        return transactionStatus.toUpperCase();
     }
-    if (notification.transaction_status === "capture") return "CHALLENGE";
+    if (transactionStatus === "capture") return "CHALLENGE";
     return null;
 };
 
@@ -157,6 +164,11 @@ export const handleMidtransNotification = async (req, res) => {
 
     const notification = req.body;
     if (!verifyNotificationSignature(notification, serverKey)) {
+        console.warn("Notifikasi Midtrans ditolak karena signature tidak valid:", {
+            orderId: notification?.order_id,
+            statusCode: notification?.status_code,
+            transactionStatus: notification?.transaction_status,
+        });
         return res.status(401).json({ message: "Signature notifikasi tidak valid." });
     }
 
@@ -185,7 +197,7 @@ export const handleMidtransNotification = async (req, res) => {
         }
         if (
             ["SETTLEMENT", "CAPTURE"].includes(transactionStatus)
-            && verifiedTransaction.status_code !== "200"
+            && String(verifiedTransaction.status_code) !== "200"
         ) {
             return res.status(409).json({ message: "Kode status transaksi berhasil tidak valid." });
         }

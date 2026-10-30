@@ -33,3 +33,30 @@ export const sendPasswordResetOtp = async (phoneNumber, otp) => {
         throw new Error("Fonnte menolak pengiriman pesan OTP.");
     }
 };
+
+export const sendRegistrationOtp = async (phoneNumber, otp) => {
+    const token = process.env.FONNTE_TOKEN;
+    if (!token) {
+        throw new Error("FONNTE_TOKEN belum dikonfigurasi.");
+    }
+
+    const formData = new FormData();
+    formData.append("target", toFonnteTarget(phoneNumber));
+    formData.append(
+        "message",
+        `Kode verifikasi WhatsApp Siremins Anda: ${otp}. Kode berlaku 5 menit dan hanya digunakan untuk mendaftarkan nomor ini.`
+    );
+    formData.append("countryCode", "62");
+
+    const response = await fetch(FONNTE_API_URL, {
+        method: "POST",
+        headers: { Authorization: token },
+        body: formData,
+        signal: AbortSignal.timeout(10000),
+    });
+
+    const result = await response.json();
+    if (!response.ok || result?.status !== true) {
+        throw new Error("Fonnte menolak pengiriman OTP registrasi.");
+    }
+};

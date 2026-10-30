@@ -3,8 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Ticket, RefreshCw, CalendarDays, Clock, CheckCircle2, AlertCircle, XCircle, FileText, Repeat, Trash2, ShieldCheck, CreditCard, Wallet } from "lucide-react";
 import axios from "axios";
 import toast from "react-hot-toast";
-
-const API_URL = "http://localhost:5000/api";
+import { API_URL } from "../config/api";
 
 const formatBookingDate = (value, options) => {
     const [year, month, day] = String(value).split("T")[0].split("-").map(Number);
@@ -21,6 +20,39 @@ export default function MyBookingsModal({ currentUser, onClose }) {
     const [pelunasanData, setPelunasanData] = useState(null);
     const [availableSlots, setAvailableSlots] = useState([]);
     const [newStartTime, setNewStartTime] = useState("");
+    const [now, setNow] = useState(() => Date.now());
+
+    useEffect(() => {
+        const timer = window.setInterval(() => setNow(Date.now()), 1000);
+        return () => window.clearInterval(timer);
+    }, []);
+
+    const getPaymentDeadlineCountdown = (booking) => {
+        let deadline;
+        if (booking.status === "PENDING_DP" && booking.created_at) {
+            const createdAt = String(booking.created_at);
+            deadline = new Date(createdAt.endsWith("Z") ? createdAt : `${createdAt.replace(" ", "T")}Z`);
+            deadline.setHours(deadline.getHours() + 1);
+        } else {
+            const date = String(booking.booking_date || "").split("T")[0];
+            const timeParts = String(booking.start_time || "").split(":");
+            if (!date || timeParts.length < 2) return null;
+
+            const startHours = String(timeParts[0]).padStart(2, "0");
+            const startMinutes = String(timeParts[1]).padStart(2, "0");
+            deadline = new Date(`${date}T${startHours}:${startMinutes}:00+07:00`);
+            deadline.setHours(deadline.getHours() - 1);
+        }
+
+        const remainingMs = deadline.getTime() - now;
+        if (remainingMs <= 0) return "Batas pembayaran telah berakhir";
+
+        const totalMinutes = Math.floor(remainingMs / 60000);
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+        const seconds = Math.floor((remainingMs % 60000) / 1000);
+        return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+    };
 
     const fetchMyBookings = async () => {
         if (!currentUser?.phone_number) return;
@@ -310,7 +342,12 @@ export default function MyBookingsModal({ currentUser, onClose }) {
                                                     <Clock className="w-4 h-4 text-slate-400" />
                                                     <span className="text-sm font-black tracking-tight">{formatBookingTime(b.start_time, b.end_time)}</span>
                                                 </div>
-                                                <p className="text-[10px] text-slate-400 font-medium">ID: #{b.id} • Atas Nama: <span className="font-bold text-slate-600 dark:text-slate-300">{b.customer_name}</span></p>
+                                                    {(isPending || isBooked) && (
+                                                        <div className={`text-[11px] font-bold ${getPaymentDeadlineCountdown(b) === "Batas pembayaran telah berakhir" ? "text-rose-600" : "text-amber-600 dark:text-amber-400"}`}>
+                                                            Batas pembayaran: {getPaymentDeadlineCountdown(b)}
+                                                        </div>
+                                                    )}
+                                                    <p className="text-[10px] text-slate-400 font-medium">ID: #{b.id} • Atas Nama: <span className="font-bold text-slate-600 dark:text-slate-300">{b.customer_name}</span></p>
                                             </div>
                                             <div className="mt-3 sm:mt-0">
                                                 <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${statusStyle.bg} ${statusStyle.color} ${statusStyle.border}`}>

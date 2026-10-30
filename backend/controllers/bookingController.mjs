@@ -98,8 +98,13 @@ const isValidDate = (value) => {
 };
 
 const getTimeMinutes = (value, allowEndOfDay = false) => {
-    if (typeof value !== "string" || !/^\d{2}:\d{2}(?::\d{2})?$/.test(value)) return null;
-    const [hours, minutes, seconds = "00"] = value.split(":").map(Number);
+    if (typeof value !== "string") return null;
+    const match = value.trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+    if (!match) return null;
+    const [, hourValue, minuteValue, secondValue = "00"] = match;
+    const hours = Number(hourValue);
+    const minutes = Number(minuteValue);
+    const seconds = Number(secondValue);
     if (seconds !== 0 || minutes !== 0) return null;
     if (allowEndOfDay && hours === 24) return 24 * 60;
     if (hours < 0 || hours > 23) return null;

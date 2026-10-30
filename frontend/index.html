@@ -6,13 +6,31 @@
   <link rel="apple-touch-icon" href="/images/logo.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- CSP LONGGAR UNTUK MENGATASI ERROR MIDTRANS DI LOCALHOST -->
+  <!-- Izinkan aset Midtrans Sandbox yang diperlukan oleh Snap. -->
   <meta http-equiv="Content-Security-Policy" content="
-      default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;
-      script-src * 'unsafe-inline' 'unsafe-eval' data: blob:;
-      style-src * 'unsafe-inline' data: blob:;
-      connect-src * 'unsafe-inline';
-      frame-src *;
+      default-src 'self' https://reservasi-cms.tech data: blob:;
+      script-src 'self' 'unsafe-inline' 'unsafe-eval'
+        https://app.sandbox.midtrans.com
+        https://api.sandbox.midtrans.com
+        https://snap-assets.sandbox.midtrans.com
+        https://pay.google.com
+        https://gwk.gopayapi.com
+        https://www.googletagmanager.com
+        https://o.alicdn.com
+        https://g.alicdn.com;
+      connect-src 'self' https://reservasi-cms.tech
+        https://app.sandbox.midtrans.com
+        https://api.sandbox.midtrans.com
+        https://snap-assets.sandbox.midtrans.com
+        https://pay.google.com
+        https://gwk.gopayapi.com
+        https://www.googletagmanager.com
+        https://o.alicdn.com
+        https://g.alicdn.com;
+      style-src 'self' 'unsafe-inline';
+      img-src 'self' data: blob: https:;
+      frame-src 'self' https://app.sandbox.midtrans.com https://api.sandbox.midtrans.com https://pay.google.com https://gwk.gopayapi.com https:;
+      font-src 'self' data: https:;
     ">
 
   <title>Cikajang Sport Center</title>

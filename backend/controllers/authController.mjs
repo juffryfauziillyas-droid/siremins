@@ -2,7 +2,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { createHmac, randomInt, timingSafeEqual } from "node:crypto";
 import db from "../db.mjs";
-import { sendPasswordResetOtp } from "../services/fonnteService.mjs";
+import { sendPasswordResetOtp, sendRegistrationOtp } from "../services/fonnteService.mjs";
 import { getJwtSecret } from "../middleware/authMiddleware.mjs";
 
 // LOGIN CUST 
@@ -84,6 +84,192 @@ export const register = async (req, res) => {
     } catch (error) {
         console.error("Error Register User:", error);
         return res.status(500).json({ message: "Gagal mendaftar pada server." });
+    }
+};
+
+const validateRegistration = (body) => {
+    const name = String(body.name || "").trim();
+    const phoneNumber = String(body.phone_number || "").trim();
+    const password = String(body.password || "");
+    const phoneDigits = phoneNumber.replace(/\D/g, "");
+
+    if (name.length < 2 || name.length > 100 || password.length < 6 || password.length > 128) {
+        return { error: "Nama, kata sandi minimal 6 karakter, dan panjang data wajib valid." };
+    }
+    if (
+        !/^[+\d\s()-]{8,24}$/.test(phoneNumber)
+        || !/^(?:0|62|8)\d{7,14}$/.test(phoneDigits)
+    ) {
+        return { error: "Format nomor HP tidak valid." };
+    }
+    return { name, phoneNumber, password };
+};
+
+export const requestRegistrationOtp = async (req, res) => {
+    const registration = validateRegistration(req.body);
+    if (registration.error) {
+        return res.status(400).json({ message: registration.error });
+    }
+
+    try {
+        if (!process.env.FONNTE_TOKEN) {
+            return res.status(503).json({ message: "Layanan WhatsApp belum dikonfigurasi." });
+        }
+        const otpHashSecret = process.env.OTP_HASH_SECRET;
+        if (!otpHashSecret || otpHashSecret.length < 32) {
+            return res.status(503).json({ message: "Layanan OTP belum dikonfigurasi." });
+        }
+
+        const [existing] = await db.query(
+            "SELECT id FROM users WHERE phone_number = ? LIMIT 1",
+            [registration.phoneNumber]
+        );
+        if (existing.length > 0) {
+            return res.status(409).json({ message: "Nomor HP sudah terdaftar. Silakan masuk." });
+        }
+
+        const connection = await db.getConnection();
+        let otp;
+        let otpHash;
+        let cooldown = false;
+        try {
+            await connection.beginTransaction();
+            const [previous] = await connection.query(
+                `SELECT last_sent_at > DATE_SUB(UTC_TIMESTAMP(), INTERVAL 60 SECOND) AS cooldown_active
+                 FROM registration_otp_challenges
+                 WHERE phone_number = ?
+                 FOR UPDATE`,
+                [registration.phoneNumber]
+            );
+            cooldown = Boolean(previous[0]?.cooldown_active);
+            const passwordHash = await bcrypt.hash(registration.password, 10);
+            if (!cooldown) {
+                otp = String(randomInt(0, 1_000_000)).padStart(6, "0");
+                otpHash = createHmac("sha256", otpHashSecret)
+                    .update(`${registration.phoneNumber}:${otp}`)
+                    .digest("hex");
+
+                await connection.query(
+                    `INSERT INTO registration_otp_challenges
+                        (phone_number, name, password_hash, otp_hash, expires_at, attempts, last_sent_at)
+                     VALUES (?, ?, ?, ?, DATE_ADD(UTC_TIMESTAMP(), INTERVAL 5 MINUTE), 0, UTC_TIMESTAMP())
+                     ON DUPLICATE KEY UPDATE
+                        name = VALUES(name),
+                        password_hash = VALUES(password_hash),
+                        otp_hash = VALUES(otp_hash),
+                        expires_at = VALUES(expires_at),
+                        attempts = 0,
+                        last_sent_at = VALUES(last_sent_at)`,
+                    [registration.phoneNumber, registration.name, passwordHash, otpHash]
+                );
+            } else {
+                await connection.query(
+                    "UPDATE registration_otp_challenges SET name = ?, password_hash = ? WHERE phone_number = ?",
+                    [registration.name, passwordHash, registration.phoneNumber]
+                );
+            }
+            await connection.commit();
+        } catch (error) {
+            await connection.rollback();
+            throw error;
+        } finally {
+            connection.release();
+        }
+
+        if (cooldown) {
+            return res.json({ message: "OTP sebelumnya masih aktif. Tunggu 1 menit sebelum meminta OTP baru." });
+        }
+        try {
+            await sendRegistrationOtp(registration.phoneNumber, otp);
+        } catch (error) {
+            await db.query(
+                "UPDATE registration_otp_challenges SET otp_hash = NULL, expires_at = UTC_TIMESTAMP() WHERE phone_number = ?",
+                [registration.phoneNumber]
+            );
+            console.error("Pengiriman OTP registrasi melalui Fonnte gagal.", error);
+            return res.status(502).json({ message: "OTP gagal dikirim. Periksa nomor WhatsApp dan coba lagi." });
+        }
+
+        return res.json({ message: "Kode OTP telah dikirim melalui WhatsApp." });
+    } catch (error) {
+        console.error("Error request OTP registrasi:", error);
+        return res.status(500).json({ message: "Gagal memproses OTP registrasi." });
+    }
+};
+
+export const verifyRegistrationOtp = async (req, res) => {
+    const phoneNumber = String(req.body.phone_number || "").trim();
+    const otp = String(req.body.otp || "").trim();
+    const name = String(req.body.name || "").trim();
+    if (!phoneNumber || !/^\d{6}$/.test(otp)) {
+        return res.status(400).json({ message: "Nomor HP dan OTP 6 digit wajib diisi." });
+    }
+
+    try {
+        const otpHashSecret = process.env.OTP_HASH_SECRET;
+        if (!otpHashSecret || otpHashSecret.length < 32) {
+            return res.status(503).json({ message: "Layanan OTP belum dikonfigurasi." });
+        }
+
+        const connection = await db.getConnection();
+        try {
+            await connection.beginTransaction();
+            const [challenges] = await connection.query(
+                `SELECT name, password_hash, otp_hash, expires_at > UTC_TIMESTAMP() AS not_expired, attempts
+                 FROM registration_otp_challenges
+                 WHERE phone_number = ? FOR UPDATE`,
+                [phoneNumber]
+            );
+            const challenge = challenges[0];
+            if (!challenge?.otp_hash || !challenge.not_expired || challenge.attempts >= 5) {
+                await connection.rollback();
+                return res.status(400).json({ message: "OTP tidak valid atau sudah kedaluwarsa." });
+            }
+
+            const submittedHash = createHmac("sha256", otpHashSecret)
+                .update(`${phoneNumber}:${otp}`)
+                .digest("hex");
+            const storedHash = Buffer.from(challenge.otp_hash, "hex");
+            const submittedHashBuffer = Buffer.from(submittedHash, "hex");
+            const valid = storedHash.length === submittedHashBuffer.length
+                && timingSafeEqual(storedHash, submittedHashBuffer);
+            if (!valid) {
+                await connection.query(
+                    "UPDATE registration_otp_challenges SET attempts = attempts + 1 WHERE phone_number = ?",
+                    [phoneNumber]
+                );
+                await connection.commit();
+                return res.status(400).json({ message: "OTP tidak valid atau sudah kedaluwarsa." });
+            }
+
+            const [existing] = await connection.query(
+                "SELECT id FROM users WHERE phone_number = ? LIMIT 1",
+                [phoneNumber]
+            );
+            if (existing.length > 0) {
+                await connection.rollback();
+                return res.status(409).json({ message: "Nomor HP sudah terdaftar. Silakan masuk." });
+            }
+
+            await connection.query(
+                "INSERT INTO users (name, phone_number, password, role) VALUES (?, ?, ?, 'CUSTOMER')",
+                [name || challenge.name, phoneNumber, challenge.password_hash]
+            );
+            await connection.query(
+                "DELETE FROM registration_otp_challenges WHERE phone_number = ?",
+                [phoneNumber]
+            );
+            await connection.commit();
+        } catch (error) {
+            await connection.rollback();
+            throw error;
+        } finally {
+            connection.release();
+        }
+        return res.json({ message: "Nomor WhatsApp berhasil diverifikasi. Akun berhasil dibuat. Silakan masuk." });
+    } catch (error) {
+        console.error("Error verify OTP registrasi:", error);
+        return res.status(500).json({ message: "Gagal memverifikasi nomor WhatsApp." });
     }
 };
 

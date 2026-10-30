@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import toast from "react-hot-toast";
+import { API_URL } from "../config/api";
 import {
     Calendar, Clock, User, Phone, Layers, CreditCard, Sparkles, X, ShieldCheck
 } from "lucide-react";
@@ -10,8 +11,6 @@ export default function BookingSection({
                                            onClose, selectedDate, setSelectedDate, timeSlots, getSlotStatus,
                                            formData, setFormData, onUpdateBookingTime, onBookingConfirmed, duration
                                        }) {
-    const API_URL = "http://localhost:5000/api";
-
     const [pricing, setPricing] = useState(null);
     const [pricingError, setPricingError] = useState("");
     const totalPrice = pricing?.packages?.[duration] || 0;
@@ -97,11 +96,30 @@ export default function BookingSection({
         e.preventDefault();
         if (!isDpValid || !formData.start_time) return;
 
+        const [startHour, startMinute] = formData.start_time.split(":").map(Number);
+        const bookingDuration = Number(duration);
+        const endHour = startHour + bookingDuration;
+        if (
+            !Number.isInteger(startHour)
+            || startMinute !== 0
+            || !Number.isInteger(bookingDuration)
+            || bookingDuration < 1
+            || bookingDuration > 3
+            || startHour < 8
+            || startHour >= 24
+            || endHour > 24
+        ) {
+            toast.error("Rentang jam booking tidak valid. Silakan pilih ulang slot dan durasi.");
+            return;
+        }
+
         const toastId = toast.loading("Menghubungkan ke sistem pembayaran...");
 
         try {
             const resBooking = await axios.post(`${API_URL}/bookings`, {
                 ...formData,
+                start_time: `${String(startHour).padStart(2, "0")}:00`,
+                end_time: `${String(endHour).padStart(2, "0")}:00`,
                 dp_amount: dpAmount,
                 booking_date: selectedDate
             });

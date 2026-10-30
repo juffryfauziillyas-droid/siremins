@@ -3,8 +3,7 @@ import { motion } from "framer-motion";
 import { X, User, Phone, Mail, Shield, Save } from "lucide-react";
 import axios from "axios";
 import toast from "react-hot-toast";
-
-const API_URL = "http://localhost:5000/api";
+import { API_URL } from "../config/api";
 
 export default function Account({ currentUser, onClose, onUpdateSuccess }) {
   const [name, setName] = useState(currentUser?.name || "");

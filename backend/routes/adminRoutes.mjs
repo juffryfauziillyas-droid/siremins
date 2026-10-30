@@ -4,6 +4,7 @@ import {
     updateBookingStatus,
     getAllUsers,
     deleteUser,
+    verifyManualPayment,
 } from "../controllers/adminController.mjs";
 import { authenticateToken, requireRole } from "../middleware/authMiddleware.mjs";
 
@@ -15,6 +16,7 @@ router.get("/me", (req, res) => {
 });
 router.get("/bookings", getAllBookings);
 router.put("/bookings/:id", updateBookingStatus);
+router.post("/bookings/:id/verify-manual-payment", verifyManualPayment);
 router.get("/users", getAllUsers);
 router.delete("/users/:id", deleteUser);
 

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import axios from "axios";
 import toast from "react-hot-toast";
+import { API_URL } from "../config/api";
 import {
     Users,
     CalendarDays,
@@ -10,10 +11,9 @@ import {
     Trash2,
     Search,
     RefreshCw,
-    LogOut
+    LogOut,
+    BadgeCheck
 } from "lucide-react";
-
-const API_URL = "http://localhost:5000/api";
 
 const getAdminRequestError = (error) => {
     const status = error.response?.status;
@@ -125,6 +125,23 @@ export default function AdminDashboard({ currentUser, onLogoutClick }) {
             fetchBookings(); // Muat ulang data
         } catch (error) {
             toast.error("Gagal memperbarui status.", { id: toastId });
+        }
+    };
+
+    const handleVerifyManualPayment = async (booking, paymentType) => {
+        const label = paymentType === "DP" ? "DP menjadi BOOKED" : "pelunasan menjadi LUNAS";
+        if (!window.confirm(`Verifikasi pembayaran manual ${label} untuk ${booking.customer_name}?`)) return;
+
+        const toastId = toast.loading("Memverifikasi pembayaran manual...");
+        try {
+            const response = await axios.post(
+                `${API_URL}/admin/bookings/${booking.id}/verify-manual-payment`,
+                { payment_type: paymentType }
+            );
+            toast.success(response.data.message || "Pembayaran manual berhasil diverifikasi.", { id: toastId });
+            fetchBookings();
+        } catch (error) {
+            toast.error(error.response?.data?.message || "Gagal memverifikasi pembayaran manual.", { id: toastId });
         }
     };
 
@@ -368,6 +385,26 @@ export default function AdminDashboard({ currentUser, onLogoutClick }) {
                           </span>
                                             </td>
                                             <td className="px-6 py-4 flex justify-center items-center space-x-1.5">
+                                                {b.status === 'PENDING_DP' && (
+                                                    <button
+                                                        onClick={() => handleVerifyManualPayment(b, 'DP')}
+                                                        title="Verifikasi DP manual menjadi BOOKED"
+                                                        className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 dark:bg-emerald-900/40 dark:hover:bg-emerald-900/60 dark:text-emerald-400 rounded-xl transition cursor-pointer text-[11px] font-black"
+                                                    >
+                                                        <BadgeCheck className="w-4 h-4" />
+                                                        Verifikasi DP
+                                                    </button>
+                                                )}
+                                                {b.status === 'BOOKED' && (
+                                                    <button
+                                                        onClick={() => handleVerifyManualPayment(b, 'SETTLEMENT')}
+                                                        title="Verifikasi pelunasan manual menjadi LUNAS"
+                                                        className="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 dark:bg-blue-900/40 dark:hover:bg-blue-900/60 dark:text-blue-400 rounded-xl transition cursor-pointer text-[11px] font-black"
+                                                    >
+                                                        <BadgeCheck className="w-4 h-4" />
+                                                        Verifikasi Lunas
+                                                    </button>
+                                                )}
                                                 {b.status !== 'BOOKED_PAID' && b.status !== 'REJECTED' && b.status !== 'CANCELLED' && (
                                                     <button onClick={() => handleUpdateBookingStatus(b.id, 'REJECTED')} title="Tolak / Batal" className="p-2 bg-rose-100 hover:bg-rose-200 text-rose-700 dark:bg-rose-900/40 dark:hover:bg-rose-900/60 dark:text-rose-400 rounded-xl transition cursor-pointer">
                                                         <XCircle className="w-4 h-4" />
